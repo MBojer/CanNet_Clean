@@ -23,18 +23,18 @@ File Log_File;
 #define Debug 5
 
 bool Log_To_Serial = true;
-byte Serial_Log_Level = 4; // Log messages to and including this level
+byte Serial_Log_Level = 5; // Log messages to and including this level -- CHANGE ME TO 4
 
 
 bool Log_To_SD = true;
-byte SD_Log_Level = 4; // Log messages to and including this level
+byte SD_Log_Level = 5; // Log messages to and including this level -- CHANGE ME TO 4
 byte SD_Cache_Lines = 10; // Number of lines to cache before wring to SD card
 
 
 // -------------------------------------------- Queue's --------------------------------------------
 #include <MB_Queue.h>
 
-MB_Queue Log_Queue(10);
+MB_Queue Log_Queue(25);
 
 // #include <MB_Queue_Delay.h>
 //
@@ -66,7 +66,7 @@ void Write_Log_To_SD() {
 
   for (byte i = 0; i < Log_Queue.Length(); i++) {
 
-    Log_File = SD.open("/Log/test.txt", FILE_READ);
+    // Log_File = SD.open("/Log/test.txt", FILE_READ);
 
 
 
@@ -188,6 +188,30 @@ int Find_Setting_Int(String &File_Content, String Setting_Name) {
 
 } // Find_Setting
 
+void Setting_Import(bool &Variable, String Search_Text) {
+  if (File_Content.indexOf("\r\n" + Search_Text + " = ") != -1)
+  {
+    Variable = Find_Setting_Bool(File_Content, Search_Text);
+    Log(Debug, "Setting imported: " + Search_Text + " = " + String(Variable));
+  }
+}
+
+void Setting_Import(int &Variable, String Search_Text) {
+  if (File_Content.indexOf("\r\n" + Search_Text + " = ") != -1)
+  {
+    Variable = Find_Setting_Int(File_Content, Search_Text);
+    Log(Debug, "Setting imported: " + Search_Text + " = " + String(Variable));
+  }
+}
+
+void Setting_Import(byte &Variable, String Search_Text) {
+  if (File_Content.indexOf("\r\n" + Search_Text + " = ") != -1)
+  {
+    Variable = Find_Setting_Int(File_Content, Search_Text);
+    Log(Debug, "Setting imported: " + Search_Text + " = " + String(Variable));
+  }
+}
+
 // -------------------------------------------- Read Conf File --------------------------------------------
 String Read_Conf_File(String File_Path, bool Error_Message) {
 
@@ -213,7 +237,6 @@ String Read_Conf_File(String File_Path, bool Error_Message) {
     File_Content = File_Content.substring(0, File_Content.indexOf("Comments:"));
 
     while (File_Content.indexOf("\r\n\r\n") != -1) {
-      // if (File_Content.indexOf("\r\n\r\n") == -1) break; // REMOVE ME - Testing
       File_Content.replace("\r\n\r\n", "\r\n");
     }
 
@@ -244,24 +267,27 @@ void setup() {
 
   if (File_Content != "") {
 
-    if (File_Content.indexOf("\r\nLog To Serial = ") != -1) {
-      Log_To_Serial = Find_Setting_Bool(File_Content, "Log To Serial");
-      Log(Debug, "Found: Log To Serial = " + String(Log_To_Serial));
-    }
+    Setting_Import(Log_To_Serial, "Log To Serial");
+    Setting_Import(Serial_Log_Level, "Serial Log Level");
 
-    if (File_Content.indexOf("\r\nLog To SD = ") != -1) {
-      Log_To_SD = Find_Setting_Bool(File_Content, "Log To SD");
-      Log(Debug, "Found: Log To SD = " + String(Log_To_SD));
-    }
+  	Setting_Import(Log_To_SD, "Log To SD");
+    Setting_Import(SD_Log_Level, "SD Log Level");
+    Setting_Import(SD_Cache_Lines, "SD Cache Lines");
 
 
-    if (File_Content.indexOf("\r\nTouch Screen Present = ") != -1) {
-      // CHANGE ME
-      Log(Debug, "Found: Touch Screen Present = " + Find_Setting_Bool(File_Content, "Touch Screen Present"));
 
-      // Touch_Screen_Present = Find_Setting_Bool(File_Content, "Touch Screen Present");
-      // Log(Debug, "Found: Touch Screen Present = " + String(Touch_Screen_Present));
-    }
+
+
+
+
+
+    // if (File_Content.indexOf("\r\nTouch Screen Present = ") != -1) {
+    //   // CHANGE ME
+    //   Log(Debug, "Found: Touch Screen Present = " + Find_Setting_Bool(File_Content, "Touch Screen Present"));
+    //
+    //   // Touch_Screen_Present = Find_Setting_Bool(File_Content, "Touch Screen Present");
+    //   // Log(Debug, "Found: Touch Screen Present = " + String(Touch_Screen_Present));
+    // }
 
 
 
