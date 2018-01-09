@@ -1,0 +1,47 @@
+
+------------------------------ General Information ------------------------------
+
+  All file have to be stored in "\CanNet\"
+
+	So an empty file HAVE to look like this:
+
+	------------------------------------------------------------
+	Settings:
+
+	Comments:
+
+	------------------------------------------------------------
+
+
+------------------------------ Settings.txt ------------------------------
+
+	This file contains general settings
+
+	"Log To Serial = ":
+    true = Enable logging to serial
+    false = Disable logging to serial
+
+  "Serial Log Level = "
+    1 = Fatal
+    2 = Error
+    3 = Warning
+    4 = Info
+    5 = Debug
+    All log entries blow this settings will be discarted
+
+
+	"Log To SD = ":
+    true = Enable logging to SD card
+    false = Disable logging to SD card
+
+  "SD Log Level = "
+    1 = Fatal
+    2 = Error
+    3 = Warning
+    4 = Info
+    5 = Debug
+    All log entries blow this settings will be discarted
+
+  "SD Cache Lines = "
+    1 - 10
+    Number of lines to cache before wring to SD card
