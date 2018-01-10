@@ -51,6 +51,7 @@ MB_Queue Log_Queue(25);
 
 
 // -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
+#include <Auto_Serial_Speed.h>
 bool Serial_Touch_Screen[3] = {false, false, false};
 
 
@@ -286,22 +287,7 @@ void setup() {
       Setting_Import(Serial_Touch_Screen[i], "Touch Screen " + String(i + 1));
     }
 
-
-    // digital clock display of the time
- Serial.print(hour());
- Serial.print(minute());
- Serial.print(second());
- Serial.print(" ");
- Serial.print(day());
- Serial.print(" ");
- Serial.print(month());
- Serial.print(" ");
- Serial.print(year());
- Serial.println();
-
-
-
-
+    working here setup speed check
 
   }
 
