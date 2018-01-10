@@ -1,8 +1,6 @@
 #include <Arduino.h>
 
 
-
-
 // -------------------------------------------- SD Card --------------------------------------------
 #include <SD.h>
 
@@ -15,7 +13,7 @@ File Log_File;
 
 
 // -------------------------------------------- Time --------------------------------------------
-#include <Time.h>
+#include <TimeLib.h>
 
 
 // --------------------------------------------- Logging ---------------------------------------------
@@ -52,6 +50,9 @@ MB_Queue Log_Queue(25);
 
 // -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
 #include <Auto_Serial_Speed.h>
+
+Auto_Serial_Speed Serial_Speed_Test;
+
 bool Serial_Touch_Screen[3] = {false, false, false};
 
 
@@ -90,9 +91,12 @@ void Write_Log_To_SD() {
 // Fatal 1 - Error 2 - Warning 3 - Info 4 - Debug 5
 void Log(byte Log_Level, String Log_Line_Text) {
 
+  String Time_String = String(hour()) + ":" + String(minute()) + ":" + String(second()) + " - " + String(day()) + "-" + String(month()) + "-" + String(year());
+
+
   if (Log_To_Serial == true && Log_Level <= Serial_Log_Level)
   {
-    Serial.print("-- ");
+    Serial.print("Time_String");
     if (Log_Level == 1) Serial.print("Fatal");
     else if (Log_Level == 2) Serial.print("Error");
     else if (Log_Level == 3) Serial.print("Warning");
@@ -287,9 +291,36 @@ void setup() {
       Setting_Import(Serial_Touch_Screen[i], "Touch Screen " + String(i + 1));
     }
 
-    working here setup speed check
+
 
   }
+
+  // -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
+  if (Serial_Touch_Screen[0] == true)
+  {
+    Log(Debug, "Touch Screen Serial1 Speed Test Started");
+    byte Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial1);
+
+    if (Temp_Byte > 89) Log(Error, "Touch Screen on Serial1 in config but connection failed with error: " + String(Serial_Speed_Test.Error_Text(Temp_Byte)));
+    else Log(Debug, "Touch Screen Serial1 Speed Selected: " + String(Serial_Speed_Test.Speed_Step(Temp_Byte)));
+  }
+  if (Serial_Touch_Screen[1] == true)
+  {
+    Log(Debug, "Touch Screen Serial2 Speed Test Started");
+    byte Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial2);
+
+    if (Temp_Byte > 89) Log(Error, "Touch Screen on Serial2 in config but connection failed with error: " + String(Serial_Speed_Test.Error_Text(Temp_Byte)));
+    else Log(Debug, "Touch Screen Serial2 Speed Selected: " + String(Serial_Speed_Test.Speed_Step(Temp_Byte)));
+  }
+  if (Serial_Touch_Screen[2] == true)
+  {
+    Log(Debug, "Touch Screen Serial3 Speed Test Started");
+    byte Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial3);
+
+    if (Temp_Byte > 89) Log(Error, "Touch Screen on Serial3 in config but connection failed with error: " + String(Serial_Speed_Test.Error_Text(Temp_Byte)));
+    else Log(Debug, "Touch Screen Serial3 Speed Selected: " + String(Serial_Speed_Test.Speed_Step(Temp_Byte)));
+  }
+
 
   Log("Boot done");
 } // setup
