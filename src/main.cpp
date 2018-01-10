@@ -14,6 +14,10 @@ File Log_File;
 #define Setting_File_Path "/CanNet/Settings.txt"
 
 
+// -------------------------------------------- Time --------------------------------------------
+#include <Time.h>
+
+
 // --------------------------------------------- Logging ---------------------------------------------
 // Log Levels
 #define Fatal 1
@@ -45,6 +49,9 @@ MB_Queue Log_Queue(25);
 //
 // MB_Queue_Delay Delay_Queue;
 
+
+// -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
+bool Serial_Touch_Screen[3] = {false, false, false};
 
 
 // --------------------- REMOVE ME ---------------------------
@@ -275,32 +282,28 @@ void setup() {
     Setting_Import(SD_Cache_Lines, "SD Cache Lines");
 
 
+    for (byte i = 0; i < 3; i++) {
+      Setting_Import(Serial_Touch_Screen[i], "Touch Screen " + String(i + 1));
+    }
 
 
+    // digital clock display of the time
+ Serial.print(hour());
+ Serial.print(minute());
+ Serial.print(second());
+ Serial.print(" ");
+ Serial.print(day());
+ Serial.print(" ");
+ Serial.print(month());
+ Serial.print(" ");
+ Serial.print(year());
+ Serial.println();
 
 
-
-
-    // if (File_Content.indexOf("\r\nTouch Screen Present = ") != -1) {
-    //   // CHANGE ME
-    //   Log(Debug, "Found: Touch Screen Present = " + Find_Setting_Bool(File_Content, "Touch Screen Present"));
-    //
-    //   // Touch_Screen_Present = Find_Setting_Bool(File_Content, "Touch Screen Present");
-    //   // Log(Debug, "Found: Touch Screen Present = " + String(Touch_Screen_Present));
-    // }
 
 
 
   }
-
-
-
-
-
-
-
-
-
 
   Log("Boot done");
 } // setup
