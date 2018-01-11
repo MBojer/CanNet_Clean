@@ -60,6 +60,16 @@ Auto_Serial_Speed Serial_Speed_Test;
 bool Serial_Touch_Screen[3] = {false, false, false};
 
 
+// -------------------------------------------- CAN  --------------------------------------------
+#include <mcp_can.h>
+#include <SPI.h>
+
+MCP_CAN CAN(10);
+
+unsigned char Buffer_Send[8];
+unsigned char Buffer_Receive[8];
+
+
 // --------------------- REMOVE ME ---------------------------
 #include <MemoryFree.h>
 unsigned long freeMemory_Last;
@@ -413,17 +423,6 @@ String Read_Conf_File(String File_Path) { // Referance only
 // ++++++++++++++++++++++++++++++++++++++++++++ CAN +++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-// -------------------------------------------- CAN  --------------------------------------------
-
-// demo: CAN-BUS Shield, send data
-#include <mcp_can.h>
-#include <SPI.h>
-
-// the cs pin of the version v1.4 is default to D10
-MCP_CAN CAN(10);                                    // Set CS pin
-
-unsigned char Buffer_Send[8];
-
 void CanNet_RX(int Device, int Device_Number, int Request, String Value) {
 
   Buffer_Send[0] = Device_Number;
@@ -484,12 +483,13 @@ void CAN_Time_Send() {
 
 }
 
-void CAN_Time_Receive(/* arguments */) {
+void CAN_Time_Receive() {
   /* code */
 }
 
-
-// -------------------------------------------- Setup --------------------------------------------
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++++++ Setup +++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void setup() {
   // -------------------------------------------- Serial --------------------------------------------
   Serial.begin(115200);
@@ -566,5 +566,6 @@ void setup() {
 } // setup
 
 void loop() {
-    // put your main code here, to run repeatedly:
+
+
 }
