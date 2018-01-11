@@ -6,7 +6,7 @@
 
 
 // -------------------------------------------- Files --------------------------------------------
-#define Log_File_Dir "/Log/"
+#define Log_File_Dir "/CanNet/Log/"
 File Log_File;
 
 #define Setting_File_Path "/CanNet/Settings.txt"
@@ -27,10 +27,14 @@ File Log_File;
 bool Log_To_Serial = true;
 byte Serial_Log_Level = 5; // Log messages to and including this level -- CHANGE ME TO 4
 
-
 bool Log_To_SD = true;
 byte SD_Log_Level = 5; // Log messages to and including this level -- CHANGE ME TO 4
 byte SD_Cache_Lines = 10; // Number of lines to cache before wring to SD card
+
+
+// -------------------------------------------- Log File Rollover --------------------------------------------
+String Current_Log_File;
+bool Temp_Log_File_Active = false;
 
 
 // -------------------------------------------- Queue's --------------------------------------------
@@ -64,58 +68,209 @@ unsigned long freeMemory_Delay_Until;
 // --------------------- REMOVE ME - End ---------------------
 
 
+// --------------------------------------------- Time String ---------------------------------------------
+String Time_String() {
+  return
+          String(day()) + "-" + String(month()) + "-" + String(year()) +
+          " " +
+          String(hour()) + ":" + String(minute()) + ":" + String(second());
+}
+
+
+// --------------------------------------------- Error Level String ---------------------------------------------
+String Error_Level_String(byte &Log_Level) {
+  switch (Log_Level) {
+    case 1:
+      return "Fatal";
+    case 2:
+      return "Fatal";
+    case 3:
+      return "Warning";
+    case 4:
+      return "Info";
+    case 5:
+      return "Debug";
+  }
+  return "";
+} // Error_Level_String
+
+
+
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // +++++++++++++++++++++++++++++++++++++++++++++ Loggging +++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+// --------------------------------------------- Loggging - Log Serial ---------------------------------------------
+// Fatal 1 - Error 2 - Warning 3 - Info 4 - Debug 5
+void Log_Serial(byte Se_Log_Level, String Se_Log_Line_Text) {
+
+  Serial.print(Time_String() + " - ");
+  if (Se_Log_Level == 1) Serial.print("Fatal");
+  else if (Se_Log_Level == 2) Serial.print("Error");
+  else if (Se_Log_Level == 3) Serial.print("Warning");
+  else if (Se_Log_Level == 4) Serial.print("Info");
+  else if (Se_Log_Level == 5) Serial.print("Debug");
+  Serial.print(": ");
+
+  Serial.println(Se_Log_Line_Text);
+}
+
+
+void Log_SD_Queue(byte SD_LSQ_Log_Level, String SD_LSQ_Log_Line_Text) {
+
+  String Log_String = String(Time_String()) + ".+-" + SD_LSQ_Log_Level + ".+-" + SD_LSQ_Log_Line_Text;
+
+  Log_Queue.Push(Log_String);
+}
+
+// --------------------------------------------- Loggging - Log File Check ---------------------------------------------
+void Log_Filename_Check() {
+
+  if (SD.exists(Current_Log_File) == true) {
+
+    String LFC_Search_String;
+
+    if (Current_Log_File.indexOf("Temp") != -1)
+    {
+      LFC_Search_String = String(Log_File_Dir) + "Temp";
+    }
+    else
+    {
+      LFC_Search_String = String(Log_File_Dir) + String(year()) + "-" + String(month()) + "-" + String(day());
+    }
+
+
+    for (byte i = 1; i < 1337; i++) {
+
+      if (SD.exists(LFC_Search_String + String(i) + ".log") == false)
+      {
+        Current_Log_File = LFC_Search_String + String(i) + ".log";
+        return;
+      }
+      else if (i == 0)
+      {
+        Log_Serial(Warning, "Using logfile: " + LFC_Search_String + "0.log");
+        Log_SD_Queue(Warning, "Using logfile: " + LFC_Search_String + "0.log");
+
+        return;
+      } // else if (i == 254)
+    } // for (byte i = 0; i < 255; i++)
+  }
+
+  return;
+} // Log_File_Check
+
+// --------------------------------------------- Loggging - Log File Rollover ---------------------------------------------
+void Log_File_Check() {
+
+  if (year() == 1970 && Temp_Log_File_Active == false) {
+
+    Current_Log_File = String(Log_File_Dir) + "Temp.log";
+
+    Log_Filename_Check();
+
+    Temp_Log_File_Active = true;
+  } // if (year() == 1790)
+
+  if (year() != 1970 && Temp_Log_File_Active == true) {
+
+    String New_Log_File_Name = String(Log_File_Dir) + String(year()) + "-" + String(month()) + "-" + String(day()) + ".log";
+
+    if (SD.exists(New_Log_File_Name) == true) {
+      Log_Serial(Debug, "Log File appended from: " + Current_Log_File + " to: " + New_Log_File_Name);
+      Log_SD_Queue(Debug, "Log File appended from: " + Current_Log_File + " to: " + New_Log_File_Name);
+
+    }
+
+    Log_Serial(Debug, "Log File renamed from: " + Current_Log_File + " to: " + New_Log_File_Name);
+    Log_SD_Queue(Debug, "Log File renamed from: " + Current_Log_File + " to: " + New_Log_File_Name);
+  }
+
+
+
+  Serial.println("Work to do here"); // rm
+  Serial.print("Current_Log_File: "); // rm
+  Serial.println(Current_Log_File); // rm
+
+
+
+
+// !!!!!!!!!!!!!!!!!!!!!!
+// dont append to files make a new one
+// add roleover if time is 23:59:59
+// check if the clock starts counting from 1970 if it does not set it so it does + sec forward should be all then roleover for days should work when not time is set
+
+} // Log_File_Check
+
 
 // --------------------------------------------- Loggging - Write Log To SD ---------------------------------------------
 void Write_Log_To_SD() {
 
   if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P
 
-  for (byte i = 0; i < Log_Queue.Length(); i++) {
+  Log_File_Check();
 
-    // Log_File = SD.open("/Log/test.txt", FILE_READ);
+  // Try and append
+  Log_File = SD.open(Current_Log_File, O_RDWR | O_APPEND);
+  if (!Log_File) {
+      // It failed, so try and make a new file.
+      Log_File = SD.open(Current_Log_File, O_RDWR | O_CREAT);
+      if (!Log_File) {
+        // It failed too, so give up.
+        Log_Serial(2, "Unable to open log file:" + Current_Log_File);
+      }
+  }
 
+  // Only write to the file if the file is actually open.
+  if (Log_File) {
 
+    Log_Serial(Debug, "Writing log file to SD card");
 
+    byte Length_Queue = Log_Queue.Length();
 
+      for (byte i = 0; i < Length_Queue; i++) {
 
+        String Temp_Str = Log_Queue.Pop();
+        Temp_Str.replace(".+-", ";");
+        Temp_Str = Temp_Str + "\r\n";
+
+        Log_File.print(Temp_Str);
+      }
+
+      Log_File.close();
   }
 
 
 
+
+
+  Log_Serial(Debug, "Log file written to SD card");
 } // Write_Log_To_SD
 
-// --------------------------------------------- Loggging - Log ---------------------------------------------
+// --------------------------------------------- Loggging - Log SD ---------------------------------------------
 // Fatal 1 - Error 2 - Warning 3 - Info 4 - Debug 5
+void Log_SD(byte &SD_Log_Level, String &SD_Log_Line_Text) {
+
+  if (Log_Queue.Length() == SD_Cache_Lines) {
+    Log_Serial(Debug, "SD Log Queue Full");
+    Write_Log_To_SD();
+    Log_Queue.Clear();
+    Log_Serial(Debug, "SD Log Queue Cleared");
+  }
+
+
+  Log_SD_Queue(SD_Log_Level, SD_Log_Line_Text);
+
+}
+
+
 void Log(byte Log_Level, String Log_Line_Text) {
 
-  String Time_String = String(hour()) + ":" + String(minute()) + ":" + String(second()) + " - " + String(day()) + "-" + String(month()) + "-" + String(year());
+  if (Log_To_Serial == true && Log_Level <= Serial_Log_Level) Log_Serial(Log_Level, Log_Line_Text);
 
+  if (Log_To_SD == true && Log_Level <= SD_Log_Level) Log_SD(Log_Level, Log_Line_Text);
 
-  if (Log_To_Serial == true && Log_Level <= Serial_Log_Level)
-  {
-    Serial.print("Time_String");
-    if (Log_Level == 1) Serial.print("Fatal");
-    else if (Log_Level == 2) Serial.print("Error");
-    else if (Log_Level == 3) Serial.print("Warning");
-    else if (Log_Level == 4) Serial.print("Info");
-    else if (Log_Level == 5) Serial.print("Debug");
-    Serial.print(" -- ");
-
-    Serial.println(Log_Line_Text);
-  }
-  if (Log_To_SD == true && Log_Level <= SD_Log_Level)
-  {
-
-    if (Log_Queue.Length() == SD_Cache_Lines) Write_Log_To_SD();
-
-
-    Log_Queue.Push(Log_Line_Text);
-
-  }
-
+  if (Log_Level == 1) Write_Log_To_SD(); // Writes log to SD, 1 = BAD system mighc crash
 
 } // Log
 
@@ -123,18 +278,12 @@ void Log(String _Log_Line_Text) { // Referance only
   Log(Info, _Log_Line_Text);
 } // Log
 
+
 // --------------------------------------------- Loggging - Show ---------------------------------------------
 String Show(byte Line_Count) {
 
   return ""; // change me
 } // Show
-
-// --------------------------------------------- Loggging - Log File Rollover ---------------------------------------------
-void Log_File_Rollover() {
-
-  // if ()
-
-} // Log_File_Rollover
 
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -147,7 +296,7 @@ void Error_Mode(byte Severity, String Text) {
   Log(Severity, Text); // change me
 
   if (Severity == 1) { // Critical - Systel will halt
-    Log(1, "System Halted"); // change me
+    Log(1, "System Halted");
     while (true) {
       delay(1000);
     }
@@ -224,6 +373,7 @@ void Setting_Import(byte &Variable, String Search_Text) {
   }
 }
 
+
 // -------------------------------------------- Read Conf File --------------------------------------------
 String Read_Conf_File(String File_Path, bool Error_Message) {
 
@@ -259,8 +409,84 @@ String Read_Conf_File(String File_Path) { // Referance only
   return Read_Conf_File(File_Path, true);
 } // Read_Conf_File
 
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++++++ CAN +++++++++++++++++++++++++++++++++++++++++++++++++++
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+// -------------------------------------------- CAN  --------------------------------------------
+
+// demo: CAN-BUS Shield, send data
+#include <mcp_can.h>
+#include <SPI.h>
+
+// the cs pin of the version v1.4 is default to D10
+MCP_CAN CAN(10);                                    // Set CS pin
+
+unsigned char Buffer_Send[8];
+
+void CanNet_RX(int Device, int Device_Number, int Request, String Value) {
+
+  Buffer_Send[0] = Device_Number;
+  Buffer_Send[1] = Request;
+  Buffer_Send[2] = 182;
+
+  if (Value == 0) {
+    for (byte i = 2; i < 8; i++) {
+      Buffer_Send[i] = 0;
+    }
+  } // if (Value == 0)
+
+  else {
+    String Temp_String = String(Value);
+
+    int Leading_0 = Temp_String.length();
+
+    for (byte ii = 2; ii < 8; ii++)
+    {
+
+      if (Leading_0 > 0)
+      {
+        Buffer_Send[ii] = 0;
+        Leading_0--;
+      }
+      else
+      {
+        String Letter = Temp_String.substring(0, 1);
+        Temp_String = Temp_String.substring(1);
+        Buffer_Send[ii] = Letter.toInt();
+      } // else
+
+    } // for
+
+  } // else
 
 
+  CAN.sendMsgBuf(Device, 0, 8, Buffer_Send);
+} // _CanNet_RX
+
+
+void CanNet_RX(int Device, int Device_Number, int Request, int Value) { // Referance only
+  CanNet_RX(Device, Device_Number, Request, String(Value));
+} // CanNet_RX
+
+void CanNet_RX(int Device, int Device_Number, int Request, float Value) { // Referance only
+  CanNet_RX(Device, Device_Number, Request, String(Value));
+} // CanNet_RX - Float
+
+
+
+// -------------------------------------------- CAN Time --------------------------------------------
+void CAN_Time_Send() {
+
+
+
+
+
+}
+
+void CAN_Time_Receive(/* arguments */) {
+  /* code */
+}
 
 
 // -------------------------------------------- Setup --------------------------------------------
@@ -291,9 +517,13 @@ void setup() {
       Setting_Import(Serial_Touch_Screen[i], "Touch Screen " + String(i + 1));
     }
 
+  } // if (File_Content != "")
 
 
-  }
+  // -------------------------------------------- Log File Dir --------------------------------------------
+  SD.mkdir(Log_File_Dir);
+
+
 
   // -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
   if (Serial_Touch_Screen[0] == true)
@@ -322,7 +552,17 @@ void setup() {
   }
 
 
+  // -------------------------------------------- CAN --------------------------------------------
+
+
+
+
+
+
+
   Log("Boot done");
+
+
 } // setup
 
 void loop() {
