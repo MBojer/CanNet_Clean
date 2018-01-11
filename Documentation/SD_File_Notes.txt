@@ -16,6 +16,10 @@
 
 	This file contains general settings
 
+  "CanNet ID = XXX"
+    XXX = Units id from 0 to 255, no duplicates allowed if one is found the unit that came up last will halt
+
+
 	"Log To Serial = ":
     true = Enable logging to serial
     false = Disable logging to serial

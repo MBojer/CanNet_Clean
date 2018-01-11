@@ -41,6 +41,7 @@ bool Temp_Log_File_Active = false;
 #include <MB_Queue.h>
 
 MB_Queue Log_Queue(25);
+MB_Queue CanNet_Receive_Queue(25);
 
 // #include <MB_Queue_Delay.h>
 //
@@ -66,8 +67,10 @@ bool Serial_Touch_Screen[3] = {false, false, false};
 
 MCP_CAN CAN(10);
 
-unsigned char Buffer_Send[8];
-unsigned char Buffer_Receive[8];
+
+// -------------------------------------------- CanNet  --------------------------------------------
+byte CanNet_ID;
+bool CanNet_ID_Check_Done = false;
 
 
 // --------------------- REMOVE ME ---------------------------
@@ -113,6 +116,8 @@ String Error_Level_String(byte &Log_Level) {
 // --------------------------------------------- Loggging - Log Serial ---------------------------------------------
 // Fatal 1 - Error 2 - Warning 3 - Info 4 - Debug 5
 void Log_Serial(byte Se_Log_Level, String Se_Log_Line_Text) {
+
+  Serial.print(String(freeMemory()) + " "); // rm
 
   Serial.print(Time_String() + " - ");
   if (Se_Log_Level == 1) Serial.print("Fatal");
@@ -280,8 +285,6 @@ void Log(byte Log_Level, String Log_Line_Text) {
 
   if (Log_To_SD == true && Log_Level <= SD_Log_Level) Log_SD(Log_Level, Log_Line_Text);
 
-  if (Log_Level == 1) Write_Log_To_SD(); // Writes log to SD, 1 = BAD system mighc crash
-
 } // Log
 
 void Log(String _Log_Line_Text) { // Referance only
@@ -305,15 +308,15 @@ void Error_Mode(byte Severity, String Text) {
 
   Log(Severity, Text); // change me
 
-  if (Severity == 1) { // Critical - Systel will halt
+  if (Severity == 1) { // Fatal - Systel will halt
     Log(1, "System Halted");
+    Write_Log_To_SD();
     while (true) {
       delay(1000);
     }
   }
 
-  if (Severity == 2) { // Error
-  }
+
 
 
 } // Error_Mode
@@ -359,28 +362,34 @@ int Find_Setting_Int(String &File_Content, String Setting_Name) {
 
 } // Find_Setting
 
-void Setting_Import(bool &Variable, String Search_Text) {
+bool Setting_Import(bool &Variable, String Search_Text) {
   if (File_Content.indexOf("\r\n" + Search_Text + " = ") != -1)
   {
     Variable = Find_Setting_Bool(File_Content, Search_Text);
     Log(Debug, "Setting imported: " + Search_Text + " = " + String(Variable));
+    return true;
   }
+  return false;
 }
 
-void Setting_Import(int &Variable, String Search_Text) {
+bool Setting_Import(int &Variable, String Search_Text) {
   if (File_Content.indexOf("\r\n" + Search_Text + " = ") != -1)
   {
     Variable = Find_Setting_Int(File_Content, Search_Text);
     Log(Debug, "Setting imported: " + Search_Text + " = " + String(Variable));
+    return true;
   }
+  return false;
 }
 
-void Setting_Import(byte &Variable, String Search_Text) {
+bool Setting_Import(byte &Variable, String Search_Text) {
   if (File_Content.indexOf("\r\n" + Search_Text + " = ") != -1)
   {
     Variable = Find_Setting_Int(File_Content, Search_Text);
     Log(Debug, "Setting imported: " + Search_Text + " = " + String(Variable));
+    return true;
   }
+  return false;
 }
 
 
@@ -392,7 +401,7 @@ String Read_Conf_File(String File_Path, bool Error_Message) {
 
     // Checks if the file exists
     if (SD.exists(File_Path) == false) {
-      if (Error_Message == true) Error_Mode(2, "File missing: " + File_Path);
+      if (Error_Message == true) Log(2, "File missing: " + File_Path);
       return "";
     }
 
@@ -419,63 +428,124 @@ String Read_Conf_File(String File_Path) { // Referance only
   return Read_Conf_File(File_Path, true);
 } // Read_Conf_File
 
+
+
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++ CAN +++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void CanNet_RX(int Device, int Device_Number, int Request, String Value) {
+// -------------------------------------------- CanNet Send --------------------------------------------
+void CanNet_Send(INT32U Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, byte Byte4, byte Byte5, byte Byte6, byte Byte7) {
 
-  Buffer_Send[0] = Device_Number;
-  Buffer_Send[1] = Request;
-  Buffer_Send[2] = 182;
+  unsigned char Buffer_Send[8] {Byte0, Byte1, Byte2, Byte3, Byte4, Byte5, Byte6, Byte7};
 
-  if (Value == 0) {
-    for (byte i = 2; i < 8; i++) {
-      Buffer_Send[i] = 0;
-    }
-  } // if (Value == 0)
+  CAN.sendMsgBuf(Target, 0, 8, Buffer_Send);
 
-  else {
-    String Temp_String = String(Value);
+}
 
-    int Leading_0 = Temp_String.length();
+void CanNet_Send(INT32U Target, byte Byte0) { // Referance only
+  CanNet_Send(Target, Byte0, 0, 0, 0, 0, 0, 0, 0);
+} // void CanNet_Send(int Target, byte Byte0)
+void CanNet_Send(INT32U Target, byte Byte0, byte Byte1) { // Referance only
+  CanNet_Send(Target, Byte0, Byte1, 0, 0, 0, 0, 0, 0);
+} // void CanNet_Send(int Target, byte Byte0, byte Byte1)
+void CanNet_Send(INT32U Target, byte Byte0, byte Byte1, byte Byte2) { // Referance only
+  CanNet_Send(Target, Byte0, Byte1, Byte2, 0, 0, 0, 0, 0);
+} // void CanNet_Send(int Target, byte Byte0, byte Byte1, byte Byte2)
+void CanNet_Send(INT32U Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3) { // Referance only
+  CanNet_Send(Target, Byte0, Byte1, Byte2, Byte3, 0, 0, 0, 0);
+} // void CanNet_Send(int Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3)
+void CanNet_Send(INT32U Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, byte Byte4) { // Referance only
+  CanNet_Send(Target, Byte0, Byte1, Byte2, Byte3, Byte4, 0, 0, 0);
+} // void CanNet_Send(int Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, byte Byte4)
+void CanNet_Send(INT32U Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, byte Byte4, byte Byte5) { // Referance only
+  CanNet_Send(Target, Byte0, Byte1, Byte2, Byte3, Byte4, Byte5, 0, 0);
+} // void CanNet_Send(int Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, byte Byte4, byte Byte5)
+void CanNet_Send(INT32U Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, byte Byte4, byte Byte5, byte Byte6) { // Referance only
+  CanNet_Send(Target, Byte0, Byte1, Byte2, Byte3, Byte4, Byte5, Byte6, 0);
+} // void CanNet_Send(int Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, byte Byte4, byte Byte5, byte Byte6)
 
-    for (byte ii = 2; ii < 8; ii++)
-    {
 
-      if (Leading_0 > 0)
-      {
-        Buffer_Send[ii] = 0;
-        Leading_0--;
+// -------------------------------------------- CAN ID Check --------------------------------------------
+void CanNet_ID_Check() {
+
+  if (CanNet_ID_Check_Done == false) {
+    Log(Debug, "CanNet ID Check");
+
+    for (byte i = 0; i < 3; i++) {
+
+      CanNet_Send(0x00A, CanNet_ID);
+
+      for (byte i = 0; i < 255; i++) {
+
+        delay(10);
+
+        Serial.println("CanNet_Receive_Queue");
+        Serial.println(CanNet_Receive_Queue.Peek_Queue());
+
+        if (i == 200) break;
       }
-      else
-      {
-        String Letter = Temp_String.substring(0, 1);
-        Temp_String = Temp_String.substring(1);
-        Buffer_Send[ii] = Letter.toInt();
-      } // else
 
-    } // for
-
-  } // else
+      if (CanNet_Receive_Queue.Search_Peek("11," + String(CanNet_ID)) != ";") {
+        Serial.println("MARKER Dumlicate ID");
+      }
 
 
-  CAN.sendMsgBuf(Device, 0, 8, Buffer_Send);
-} // _CanNet_RX
 
 
-void CanNet_RX(int Device, int Device_Number, int Request, int Value) { // Referance only
-  CanNet_RX(Device, Device_Number, Request, String(Value));
-} // CanNet_RX
 
-void CanNet_RX(int Device, int Device_Number, int Request, float Value) { // Referance only
-  CanNet_RX(Device, Device_Number, Request, String(Value));
-} // CanNet_RX - Float
 
+
+      // working here add can recive and check if a 0x00B message is in the queue
+      // if not the can check passed and move on
+      //
+      // also add and auto send 0x00B if duplicte can message comes in on 0x00A
+
+    }
+  }
+
+
+
+}
+
+
+// -------------------------------------------- CanNet Receive --------------------------------------------
+void CanNet_Receive(/* arguments */) {
+
+  if(CAN_MSGAVAIL == CAN.checkReceive()) { // check if data coming
+
+    unsigned char Buffer_Receive[8];
+    INT32U CAN_ID = CAN.getCanId();
+
+    // CAN.readMsgBuf(8, Buffer_Receive);    // read data,  len: data length, RX_Buffer: data RX_Buffer
+
+
+    String Temp_String = String(CAN_ID) + ",";
+
+    for (byte i = 0; i < 8; i++) {
+      Temp_String = Temp_String + String(Buffer_Receive[i]) + ",";
+    }
+
+    if (CAN_ID > 700) // Messages with id 0 to 699 is either system or high priority
+    {
+      CanNet_Receive_Queue.Push(Temp_String, true);
+    }
+    else
+    {
+      CanNet_Receive_Queue.Push(Temp_String);
+    }
+
+    if (CAN_ID == 10 && CAN_ID == 11) CanNet_ID_Check(); // 0x00A (10) ID Crech Broadcast 0x00B (11) = IC Check failed reply
+
+    Log(Debug, "CanNet RX: " + Temp_String);
+
+  } // if(CAN_MSGAVAIL == CAN.checkReceive())
+
+} // CanNet_Receive
 
 
 // -------------------------------------------- CAN Time --------------------------------------------
-void CAN_Time_Send() {
+void CanNet_Time_Send() {
 
 
 
@@ -483,9 +553,19 @@ void CAN_Time_Send() {
 
 }
 
-void CAN_Time_Receive() {
+void CanNet_Time_Receive() {
   /* code */
 }
+
+void CanNet_Time_Request() {
+
+
+
+
+
+
+}
+
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++ Setup +++++++++++++++++++++++++++++++++++++++++++++++++
@@ -497,13 +577,17 @@ void setup() {
 
   // -------------------------------------------- SD Card --------------------------------------------
   if (!SD.begin(4)) {
-    Error_Mode(1, "Initializing SD card failed");
+    Error_Mode(Fatal, "Initializing SD card failed");
   }
 
   // -------------------------------------------- Settings file import --------------------------------------------
   File_Content = Read_Conf_File(Setting_File_Path);
 
   if (File_Content != "") {
+
+    if (Setting_Import(CanNet_ID, "CanNet ID") == false) { // CAN ID needed for the system to work
+      Error_Mode(Fatal, "CAN ID not found in settings file not found");
+    }
 
     Setting_Import(Log_To_Serial, "Log To Serial");
     Setting_Import(Serial_Log_Level, "Serial Log Level");
@@ -519,10 +603,18 @@ void setup() {
 
   } // if (File_Content != "")
 
+  else { // Settings file if needed for the system to work
+    Error_Mode(Fatal, "Settings file not found");
+  }
+
+
+  // -------------------------------------------- CAN --------------------------------------------
+  if (CAN_OK == CAN.begin(CAN_500KBPS)) Log(Debug, "CAN BUS Shield initialization ok");
+  else Error_Mode(Fatal, "CAN BUS Shield initialization failed");
+
 
   // -------------------------------------------- Log File Dir --------------------------------------------
-  SD.mkdir(Log_File_Dir);
-
+  SD.mkdir(Log_File_Dir); // If the dir is not there the logs will not be created
 
 
   // -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
@@ -552,8 +644,12 @@ void setup() {
   }
 
 
-  // -------------------------------------------- CAN --------------------------------------------
 
+
+
+
+
+  CanNet_Time_Request();
 
 
 
@@ -566,6 +662,10 @@ void setup() {
 } // setup
 
 void loop() {
+
+  // -------------------------------------------- CanNet ID Check --------------------------------------------
+  CanNet_Receive();
+  delay(500);
 
 
 }
