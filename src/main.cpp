@@ -4,15 +4,15 @@
 
 
 // -------------------------------------------- SD Card --------------------------------------------
-#include <SD.h>
+// #include <SD.h> // fat
 
 
-// -------------------------------------------- Files --------------------------------------------
-#define Log_File_Dir "/CanNet/Log/"
-String Current_Log_File = String(Log_File_Dir) + "Temp.log";
-
-#define Setting_File_Path "/CanNet/Settings.txt"
-// String File_Content;
+// // -------------------------------------------- Files --------------------------------------------  // fat
+// #define Log_File_Dir "/CanNet/Log/"
+// String Current_Log_File = String(Log_File_Dir) + "Temp.log";
+//
+// #define Setting_File_Path "/CanNet/Settings.txt"
+// // String File_Content;
 
 
 // -------------------------------------------- Time --------------------------------------------
@@ -134,106 +134,107 @@ void Log_SD_Queue(byte SD_LSQ_Log_Level, String SD_LSQ_Log_Line_Text) {
 
 
 
-
-void Log_File_Manager() {
-
-  Serial.println(Current_Log_File);
-
-  File Test_File = SD.open("Log/Temp.log", FILE_WRITE);
-  Serial.println(Test_File);
-
-
-
-
-
-  // File_Content = Read_Conf_File(Setting_File_Path);
-
-  //
-  //
-  // Serial.print("Read_File: ");
-  // Serial.println(Read_File(Setting_File_Path));
-
-
-  //
-  // if (Test_File == false) {
-  //   Serial.println("Marker");
-  //
-  //
-  //   Test_File = SD.open(Current_Log_File, FILE_WRITE);
-  //   if (Test_File == false) {
-  //     Serial.println("Marker2");
-  //   }
-  //   else Test_File.close();
-  //
-  //
-  //   return; // Log file not in use, no reason to continue
-  // }
-  //
-  // else { // Log file exists
-  //   Log_SD_Queue(Debug, "Log File exists");
-  //   Log_Serial(Debug, "Log File exists");
-  //   Test_File.close();
-
-
-
-  // } // Log file exists
-
-  // Log_Serial(Debug, "Using log file: " + String(Current_Log_File));
-
-
-
-}
-
-void Write_Log_To_SD() {
-
-
-  // if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P // uncomment me
-
-
-
-  //  Log_File = SD.open(Current_Log_File, FILE_WRITE);
-  //
-  // if (Log_File){
-  //   Serial.println("Works");
-  //   Log_File.close();
-  //   while (true) delay(100);
-  // }
-  // else {
-  //   Log_File = SD.open("test.txt", O_CREAT);
-  //   if (Log_File){
-  //     Serial.println("create Works");
-  //     Log_File.close();
-  //     while (true) delay(100);
-  //   }
-  // }
-  //
-  // Serial.println(freeMemory());
-  // Serial.println("DIDNT Works");
-  // while (true) delay(100);
-}
-
-
-
-void Log_SD(byte &SD_Log_Level, String &SD_Log_Line_Text) {
-
-  if (Log_Queue.Length() == SD_Cache_Lines) {
-    Log_Serial(Debug, "SD Log Queue Full");
-    Write_Log_To_SD();
-    Log_Queue.Clear();
-    Log_Serial(Debug, "SD Log Queue Cleared");
-  }
+//  // fat
+// void Log_File_Manager() {
+//
+//   Serial.println(Current_Log_File);
+//
+//   File Test_File = SD.open("Log/Temp.log", FILE_WRITE);
+//   Serial.println(Test_File);
+//
+//
+//
+//
+//
+//   // File_Content = Read_Conf_File(Setting_File_Path);
+//
+//   //
+//   //
+//   // Serial.print("Read_File: ");
+//   // Serial.println(Read_File(Setting_File_Path));
+//
+//
+//   //
+//   // if (Test_File == false) {
+//   //   Serial.println("Marker");
+//   //
+//   //
+//   //   Test_File = SD.open(Current_Log_File, FILE_WRITE);
+//   //   if (Test_File == false) {
+//   //     Serial.println("Marker2");
+//   //   }
+//   //   else Test_File.close();
+//   //
+//   //
+//   //   return; // Log file not in use, no reason to continue
+//   // }
+//   //
+//   // else { // Log file exists
+//   //   Log_SD_Queue(Debug, "Log File exists");
+//   //   Log_Serial(Debug, "Log File exists");
+//   //   Test_File.close();
+//
+//
+//
+//   // } // Log file exists
+//
+//   // Log_Serial(Debug, "Using log file: " + String(Current_Log_File));
+//
+//
+//
+// }
+//
+// void Write_Log_To_SD() {
+//
+//
+//   // if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P // uncomment me
+//
+//
+//
+//   //  Log_File = SD.open(Current_Log_File, FILE_WRITE);
+//   //
+//   // if (Log_File){
+//   //   Serial.println("Works");
+//   //   Log_File.close();
+//   //   while (true) delay(100);
+//   // }
+//   // else {
+//   //   Log_File = SD.open("test.txt", O_CREAT);
+//   //   if (Log_File){
+//   //     Serial.println("create Works");
+//   //     Log_File.close();
+//   //     while (true) delay(100);
+//   //   }
+//   // }
+//   //
+//   // Serial.println(freeMemory());
+//   // Serial.println("DIDNT Works");
+//   // while (true) delay(100);
+// }
 
 
-  Log_SD_Queue(SD_Log_Level, SD_Log_Line_Text);
-
-}
+ // fat
+// void Log_SD(byte &SD_Log_Level, String &SD_Log_Line_Text) {
+//
+//   if (Log_Queue.Length() == SD_Cache_Lines) {
+//     Log_Serial(Debug, "SD Log Queue Full");
+//     Write_Log_To_SD();
+//     Log_Queue.Clear();
+//     Log_Serial(Debug, "SD Log Queue Cleared");
+//   }
+//
+//
+//   Log_SD_Queue(SD_Log_Level, SD_Log_Line_Text);
+//
+// }
 
 
 void Log(byte Log_Level, String Log_Line_Text) {
 
   if (Log_To_Serial == true && Log_Level <= Serial_Log_Level) Log_Serial(Log_Level, Log_Line_Text);
 
-  if (Log_To_SD == true && Log_Level <= SD_Log_Level) Log_SD(Log_Level, Log_Line_Text);
+ // fat
+  // if (Log_To_SD == true && Log_Level <= SD_Log_Level) Log_SD(Log_Level, Log_Line_Text);
 
 } // Log
 
@@ -259,7 +260,7 @@ void Error_Mode(byte Severity, String Text) {
 
   if (Severity == 1) { // Fatal - Systel will halt
     Log(1, "System Halted");
-    Write_Log_To_SD();
+    // Write_Log_To_SD();  // fat
     while (true) {
       delay(1000);
     }
@@ -343,38 +344,39 @@ bool Setting_Import(byte &Variable, String Search_Text, String &File_Content) {
 
 
 // -------------------------------------------- Read Conf File --------------------------------------------
-String Read_Conf_File(String File_Path, bool Error_Message) {
+ // fat
+// String Read_Conf_File(String File_Path, bool Error_Message) {
+//
+//     String Temp_Content = "";
+//     File Temp_File = SD.open(File_Path); // Open the file
+//
+//     // Checks if the file exists
+//     if (Temp_File == false) {
+//       if (Error_Message == true) Log(2, "File missing: " + File_Path);
+//       return "";
+//     }
+//
+//
+//     // Reads the file and puts it into a string
+//     while (Temp_File.available()) {
+//       char Letter = Temp_File.read();
+//       Temp_Content += Letter;
+//     }
+//
+//     Temp_File.close(); // Close the file
+//
+//     Temp_Content = Temp_Content.substring(0, Temp_Content.indexOf("Comments:"));
+//
+//     while (Temp_Content.indexOf("\r\n\r\n") != -1) {
+//       Temp_Content.replace("\r\n\r\n", "\r\n");
+//     }
+//
+//     return Temp_Content;
+// }
 
-    String Temp_Content = "";
-    File Temp_File = SD.open(File_Path); // Open the file
-
-    // Checks if the file exists
-    if (Temp_File == false) {
-      if (Error_Message == true) Log(2, "File missing: " + File_Path);
-      return "";
-    }
-
-
-    // Reads the file and puts it into a string
-    while (Temp_File.available()) {
-      char Letter = Temp_File.read();
-      Temp_Content += Letter;
-    }
-
-    Temp_File.close(); // Close the file
-
-    Temp_Content = Temp_Content.substring(0, Temp_Content.indexOf("Comments:"));
-
-    while (Temp_Content.indexOf("\r\n\r\n") != -1) {
-      Temp_Content.replace("\r\n\r\n", "\r\n");
-    }
-
-    return Temp_Content;
-}
-
-String Read_Conf_File(String File_Path) { // Referance only
-  return Read_Conf_File(File_Path, true);
-} // Read_Conf_File
+// String Read_Conf_File(String File_Path) { // Referance only
+//   return Read_Conf_File(File_Path, true);
+// } // Read_Conf_File
 
 
 
@@ -544,39 +546,39 @@ void setup() {
 
 
   // -------------------------------------------- SD Card --------------------------------------------
-  if (!SD.begin(4)) {
-    Error_Mode(Fatal, "Initializing SD card failed");
-  }
+  // if (!SD.begin(4)) { // fat
+  //   Error_Mode(Fatal, "Initializing SD card failed");
+  // }
 
 
 
-
-  // -------------------------------------------- Settings file import --------------------------------------------
-  String File_Content = Read_Conf_File(Setting_File_Path);
-
-  if (File_Content != "") {
-
-    if (Setting_Import(CanNet_ID, "CanNet ID", File_Content) == false) { // CAN ID needed for the system to work
-      Error_Mode(Fatal, "CAN ID not found in settings file not found");
-    }
-
-    Setting_Import(Log_To_Serial, "Log To Serial", File_Content);
-    Setting_Import(Serial_Log_Level, "Serial Log Level", File_Content);
-
-  	Setting_Import(Log_To_SD, "Log To SD", File_Content);
-    Setting_Import(SD_Log_Level, "SD Log Level", File_Content);
-    Setting_Import(SD_Cache_Lines, "SD Cache Lines", File_Content);
-
-
-    for (byte i = 0; i < 3; i++) {
-      Setting_Import(Serial_Touch_Screen[i], "Touch Screen " + String(i + 1), File_Content);
-    }
-
-  } // if (File_Content != "")
-
-  else { // Settings file if needed for the system to work
-    Error_Mode(Fatal, "Settings file not found");
-  }
+ // fat
+  // // -------------------------------------------- Settings file import --------------------------------------------
+  // String File_Content = Read_Conf_File(Setting_File_Path);
+  //
+  // if (File_Content != "") {
+  //
+  //   if (Setting_Import(CanNet_ID, "CanNet ID", File_Content) == false) { // CAN ID needed for the system to work
+  //     Error_Mode(Fatal, "CAN ID not found in settings file not found");
+  //   }
+  //
+  //   Setting_Import(Log_To_Serial, "Log To Serial", File_Content);
+  //   Setting_Import(Serial_Log_Level, "Serial Log Level", File_Content);
+  //
+  // 	Setting_Import(Log_To_SD, "Log To SD", File_Content);
+  //   Setting_Import(SD_Log_Level, "SD Log Level", File_Content);
+  //   Setting_Import(SD_Cache_Lines, "SD Cache Lines", File_Content);
+  //
+  //
+  //   for (byte i = 0; i < 3; i++) {
+  //     Setting_Import(Serial_Touch_Screen[i], "Touch Screen " + String(i + 1), File_Content);
+  //   }
+  //
+  // } // if (File_Content != "")
+  //
+  // else { // Settings file if needed for the system to work
+  //   Error_Mode(Fatal, "Settings file not found");
+  // }
 
 
   // -------------------------------------------- CAN --------------------------------------------
@@ -639,9 +641,6 @@ void loop() {
   // -------------------------------------------- CanNet ID Check --------------------------------------------
   CanNet_Receive();
   delay(500);
-
-  Log_File_Manager();
-
 
 
 }
