@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+#include <SPI.h>
+
 
 // -------------------------------------------- SD Card --------------------------------------------
 #include <SD.h>
@@ -7,7 +9,7 @@
 
 // -------------------------------------------- Files --------------------------------------------
 #define Log_File_Dir "/CanNet/Log/"
-File Log_File;
+String Current_Log_File = "/CanNet/Log/Temp.log";
 
 #define Setting_File_Path "/CanNet/Settings.txt"
 
@@ -30,11 +32,6 @@ byte Serial_Log_Level = 5; // Log messages to and including this level -- CHANGE
 bool Log_To_SD = true;
 byte SD_Log_Level = 5; // Log messages to and including this level -- CHANGE ME TO 4
 byte SD_Cache_Lines = 10; // Number of lines to cache before wring to SD card
-
-
-// -------------------------------------------- Log File Rollover --------------------------------------------
-String Current_Log_File;
-bool Temp_Log_File_Active = false;
 
 
 // -------------------------------------------- Queue's --------------------------------------------
@@ -63,7 +60,6 @@ bool Serial_Touch_Screen[3] = {false, false, false};
 
 // -------------------------------------------- CAN  --------------------------------------------
 #include <mcp_can.h>
-#include <SPI.h>
 
 MCP_CAN CAN(10);
 
@@ -74,10 +70,7 @@ bool CanNet_ID_Check_Done = false;
 
 
 // --------------------- REMOVE ME ---------------------------
-#include <MemoryFree.h>
-unsigned long freeMemory_Last;
-unsigned long freeMemory_Delay_Until;
-#define freeMemory_Delay_For 250
+#include <MemoryFree.h> // rm
 // --------------------- REMOVE ME - End ---------------------
 
 
@@ -113,7 +106,7 @@ String Error_Level_String(byte &Log_Level) {
 // +++++++++++++++++++++++++++++++++++++++++++++ Loggging +++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-// --------------------------------------------- Loggging - Log Serial ---------------------------------------------
+// --------------------------------------------- Loggging ---------------------------------------------
 // Fatal 1 - Error 2 - Warning 3 - Info 4 - Debug 5
 void Log_Serial(byte Se_Log_Level, String Se_Log_Line_Text) {
 
@@ -131,6 +124,53 @@ void Log_Serial(byte Se_Log_Level, String Se_Log_Line_Text) {
 }
 
 
+void Log_File_Manager() {
+
+
+  File Test_File = SD.open(Current_Log_File, FILE_READ);
+
+  if (Test_File == false) { // Log file not in use
+    return;
+
+  }
+
+
+  // Log_Serial(Debug, "Log File exists");
+  // Log_Serial(Debug, "Using log file: " + String(Current_Log_File));
+
+
+
+}
+
+void Write_Log_To_SD() {
+
+  // if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P // uncomment me
+
+  Log_File_Manager();
+
+  File Log_File = SD.open(Current_Log_File, FILE_WRITE);
+
+  if (Log_File){
+    Serial.println("Works");
+    Log_File.close();
+    while (true) delay(100);
+  }
+  else {
+    Log_File = SD.open("test.txt", O_CREAT);
+    if (Log_File){
+      Serial.println("create Works");
+      Log_File.close();
+      while (true) delay(100);
+    }
+  }
+
+  Serial.println(freeMemory());
+  Serial.println("DIDNT Works");
+  while (true) delay(100);
+}
+
+
+
 void Log_SD_Queue(byte SD_LSQ_Log_Level, String SD_LSQ_Log_Line_Text) {
 
   String Log_String = String(Time_String()) + ".+-" + SD_LSQ_Log_Level + ".+-" + SD_LSQ_Log_Line_Text;
@@ -138,132 +178,6 @@ void Log_SD_Queue(byte SD_LSQ_Log_Level, String SD_LSQ_Log_Line_Text) {
   Log_Queue.Push(Log_String);
 }
 
-// --------------------------------------------- Loggging - Log File Check ---------------------------------------------
-void Log_Filename_Check() {
-
-  if (SD.exists(Current_Log_File) == true) {
-
-    String LFC_Search_String;
-
-    if (Current_Log_File.indexOf("Temp") != -1)
-    {
-      LFC_Search_String = String(Log_File_Dir) + "Temp";
-    }
-    else
-    {
-      LFC_Search_String = String(Log_File_Dir) + String(year()) + "-" + String(month()) + "-" + String(day());
-    }
-
-
-    for (byte i = 1; i < 1337; i++) {
-
-      if (SD.exists(LFC_Search_String + String(i) + ".log") == false)
-      {
-        Current_Log_File = LFC_Search_String + String(i) + ".log";
-        return;
-      }
-      else if (i == 0)
-      {
-        Log_Serial(Warning, "Using logfile: " + LFC_Search_String + "0.log");
-        Log_SD_Queue(Warning, "Using logfile: " + LFC_Search_String + "0.log");
-
-        return;
-      } // else if (i == 254)
-    } // for (byte i = 0; i < 255; i++)
-  }
-
-  return;
-} // Log_File_Check
-
-// --------------------------------------------- Loggging - Log File Rollover ---------------------------------------------
-void Log_File_Check() {
-
-  if (year() == 1970 && Temp_Log_File_Active == false) {
-
-    Current_Log_File = String(Log_File_Dir) + "Temp.log";
-
-    Log_Filename_Check();
-
-    Temp_Log_File_Active = true;
-  } // if (year() == 1790)
-
-  if (year() != 1970 && Temp_Log_File_Active == true) {
-
-    String New_Log_File_Name = String(Log_File_Dir) + String(year()) + "-" + String(month()) + "-" + String(day()) + ".log";
-
-    if (SD.exists(New_Log_File_Name) == true) {
-      Log_Serial(Debug, "Log File appended from: " + Current_Log_File + " to: " + New_Log_File_Name);
-      Log_SD_Queue(Debug, "Log File appended from: " + Current_Log_File + " to: " + New_Log_File_Name);
-
-    }
-
-    Log_Serial(Debug, "Log File renamed from: " + Current_Log_File + " to: " + New_Log_File_Name);
-    Log_SD_Queue(Debug, "Log File renamed from: " + Current_Log_File + " to: " + New_Log_File_Name);
-  }
-
-
-
-  Serial.println("Work to do here"); // rm
-  Serial.print("Current_Log_File: "); // rm
-  Serial.println(Current_Log_File); // rm
-
-
-
-
-// !!!!!!!!!!!!!!!!!!!!!!
-// dont append to files make a new one
-// add roleover if time is 23:59:59
-// check if the clock starts counting from 1970 if it does not set it so it does + sec forward should be all then roleover for days should work when not time is set
-
-} // Log_File_Check
-
-
-// --------------------------------------------- Loggging - Write Log To SD ---------------------------------------------
-void Write_Log_To_SD() {
-
-  if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P
-
-  Log_File_Check();
-
-  // Try and append
-  Log_File = SD.open(Current_Log_File, O_RDWR | O_APPEND);
-  if (!Log_File) {
-      // It failed, so try and make a new file.
-      Log_File = SD.open(Current_Log_File, O_RDWR | O_CREAT);
-      if (!Log_File) {
-        // It failed too, so give up.
-        Log_Serial(2, "Unable to open log file:" + Current_Log_File);
-      }
-  }
-
-  // Only write to the file if the file is actually open.
-  if (Log_File) {
-
-    Log_Serial(Debug, "Writing log file to SD card");
-
-    byte Length_Queue = Log_Queue.Length();
-
-      for (byte i = 0; i < Length_Queue; i++) {
-
-        String Temp_Str = Log_Queue.Pop();
-        Temp_Str.replace(".+-", ";");
-        Temp_Str = Temp_Str + "\r\n";
-
-        Log_File.print(Temp_Str);
-      }
-
-      Log_File.close();
-  }
-
-
-
-
-
-  Log_Serial(Debug, "Log file written to SD card");
-} // Write_Log_To_SD
-
-// --------------------------------------------- Loggging - Log SD ---------------------------------------------
-// Fatal 1 - Error 2 - Warning 3 - Info 4 - Debug 5
 void Log_SD(byte &SD_Log_Level, String &SD_Log_Line_Text) {
 
   if (Log_Queue.Length() == SD_Cache_Lines) {
@@ -291,12 +205,11 @@ void Log(String _Log_Line_Text) { // Referance only
   Log(Info, _Log_Line_Text);
 } // Log
 
-
-// --------------------------------------------- Loggging - Show ---------------------------------------------
 String Show(byte Line_Count) {
 
   return ""; // change me
 } // Show
+
 
 
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -466,65 +379,54 @@ void CanNet_Send(INT32U Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, 
 } // void CanNet_Send(int Target, byte Byte0, byte Byte1, byte Byte2, byte Byte3, byte Byte4, byte Byte5, byte Byte6)
 
 
-// -------------------------------------------- CAN ID Check --------------------------------------------
-void CanNet_ID_Check() {
+void CanNet_ID_Check(int ID_To_Check) {
 
-  if (CanNet_ID_Check_Done == false) {
-    Log(Debug, "CanNet ID Check");
+  Serial.println("MARKER123");
 
-    for (byte i = 0; i < 3; i++) {
+  Serial.println("MARKER123123123");
 
-      CanNet_Send(0x00A, CanNet_ID);
-
-      for (byte i = 0; i < 255; i++) {
-
-        delay(10);
-
-        Serial.println("CanNet_Receive_Queue");
-        Serial.println(CanNet_Receive_Queue.Peek_Queue());
-
-        if (i == 200) break;
-      }
-
-      if (CanNet_Receive_Queue.Search_Peek("11," + String(CanNet_ID)) != ";") {
-        Serial.println("MARKER Dumlicate ID");
-      }
-
-
-
-
-
-
-
-      // working here add can recive and check if a 0x00B message is in the queue
-      // if not the can check passed and move on
-      //
-      // also add and auto send 0x00B if duplicte can message comes in on 0x00A
-
+  if (CanNet_ID_Check_Done == false) { // Error during boot check
+    if (CanNet_ID == ID_To_Check) {
+      Error_Mode(Fatal, "Duplicate CanNet ID found on network during boot, halting");
     }
   }
 
-
+  if (CanNet_ID == ID_To_Check) {
+    Log(Warning, "Duplicate CanNet ID found on network");
+    CanNet_Send(0x00B, CanNet_ID);
+  }
 
 }
 
 
 // -------------------------------------------- CanNet Receive --------------------------------------------
-void CanNet_Receive(/* arguments */) {
+void CanNet_Receive() {
 
   if(CAN_MSGAVAIL == CAN.checkReceive()) { // check if data coming
 
+    unsigned char len = 0;
     unsigned char Buffer_Receive[8];
     INT32U CAN_ID = CAN.getCanId();
 
-    // CAN.readMsgBuf(8, Buffer_Receive);    // read data,  len: data length, RX_Buffer: data RX_Buffer
-
+    CAN.readMsgBuf(&len, Buffer_Receive);    // read data,  len: data length, RX_Buffer: data RX_Buffer
 
     String Temp_String = String(CAN_ID) + ",";
 
     for (byte i = 0; i < 8; i++) {
       Temp_String = Temp_String + String(Buffer_Receive[i]) + ",";
     }
+
+    if (CAN_ID == 0x00A) { // Message not getting queued
+      CanNet_ID_Check(Buffer_Receive[0]); // 0x00A (10) ID Crech Broadcast 0x00B (11) = IC Check failed reply
+      return;
+    }
+
+    if (CAN_ID == 0x00B) { // Message not getting queued
+      CanNet_ID_Check(Buffer_Receive[0]); // 0x00A (10) ID Crech Broadcast 0x00B (11) = IC Check failed reply
+
+      return;
+    }
+
 
     if (CAN_ID > 700) // Messages with id 0 to 699 is either system or high priority
     {
@@ -535,14 +437,44 @@ void CanNet_Receive(/* arguments */) {
       CanNet_Receive_Queue.Push(Temp_String);
     }
 
-    if (CAN_ID == 10 && CAN_ID == 11) CanNet_ID_Check(); // 0x00A (10) ID Crech Broadcast 0x00B (11) = IC Check failed reply
 
-    Log(Debug, "CanNet RX: " + Temp_String);
+    Log(Debug, String("CanNet RX: " + String(CAN_ID) + "-" + String(Temp_String)));
 
   } // if(CAN_MSGAVAIL == CAN.checkReceive())
 
 } // CanNet_Receive
 
+
+
+// -------------------------------------------- CAN ID Check Boot --------------------------------------------
+void CanNet_ID_Boot_Check() {
+
+  Log(Debug, "CanNet ID Boot Check");
+
+  for (byte i = 0; i < 3; i++) {
+
+    CanNet_Send(0x00A, CanNet_ID);
+
+    for (byte i = 0; i < 255; i++) {
+
+      delay(200);
+
+      CanNet_Receive();
+
+      if (i == 10) break;
+    }
+
+
+    // working here add can recive and check if a 0x00B message is in the queue
+    // if not the can check passed and move on
+    //
+    // also add and auto send 0x00B if duplicte can message comes in on 0x00A
+
+  }
+  CanNet_ID_Check_Done = true;
+  Log(Debug, "CanNet ID Boot Check Passed");
+
+}
 
 // -------------------------------------------- CAN Time --------------------------------------------
 void CanNet_Time_Send() {
@@ -575,10 +507,14 @@ void setup() {
   Serial.begin(115200);
   Log("Booting");
 
+
   // -------------------------------------------- SD Card --------------------------------------------
   if (!SD.begin(4)) {
     Error_Mode(Fatal, "Initializing SD card failed");
   }
+
+  // Creates the Log folder if it is not there
+  SD.mkdir(Log_File_Dir);
 
   // -------------------------------------------- Settings file import --------------------------------------------
   File_Content = Read_Conf_File(Setting_File_Path);
@@ -613,8 +549,10 @@ void setup() {
   else Error_Mode(Fatal, "CAN BUS Shield initialization failed");
 
 
-  // -------------------------------------------- Log File Dir --------------------------------------------
-  SD.mkdir(Log_File_Dir); // If the dir is not there the logs will not be created
+  // -------------------------------------------- CanNet --------------------------------------------
+  CanNet_ID_Boot_Check();
+
+
 
 
   // -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
