@@ -149,19 +149,30 @@ void Log_File_Rename(String New_File_Name) {
 
   sd.chdir(Log_File_Dir);
 
-  if (!sd.rename(Current_Log_File.c_str(), New_File_Name.c_str())) {
-  // if (!sd.rename(Current_Log_File.c_str(), New_File_Name.c_str())) {
-    Log_Serial(Error, "Unable to rename log file: " + Current_Log_File + " to: " + New_File_Name);
+  if (sd.exists(New_File_Name.c_str())) {
+    Current_Log_File = String(year()) + "-" + String(month()) + "-" + String(day() + ".log");
+    Log_Serial(Info, "FILE EXISTS: " + Current_Log_File + " to: " + New_File_Name);
+    return;
+  }
+
+  Log_File.close();
+
+  SdFile NewFile(Current_Log_File.c_str(), O_APPEND);
+
+  if (!NewFile.isOpen()) {
+    Log_SD_Queue(Error, "Log file in use", true);
+    return;
+  }
+
+  if (!NewFile.rename(sd.vwd(), String(Log_File_Dir + New_File_Name).c_str())) {
+    Log_Serial(Error, "Unable to rename log file from: " + Current_Log_File + " to: " + New_File_Name);
     Disable_Log_To_SD();
   }
 
-  else if (Current_Log_File.indexOf("Temp") != -1) {
-    Current_Log_File = String(year()) + "-" + String(month()) + "-" + String(day() + ".log");
-    Log_Serial(Info, "Temp log file renamed from: " + Current_Log_File + " to: " + New_File_Name);
-  }
   else {
+    NewFile.close();
     Current_Log_File = String(year()) + "-" + String(month()) + "-" + String(day() + ".log");
-    Log_Serial(Debug, "Log file renamed from: " + Current_Log_File + " to: " + New_File_Name);
+    Log_Serial(Info, "Log file renamed from: " + Current_Log_File + " to: " + New_File_Name);
   }
 
 } // Log_File_Rename
@@ -173,7 +184,7 @@ void Log_File_Manager() {
   if (sd.exists(Current_Log_File.c_str())) {
     // ++++++++++++++++++++ Temp log file active ++++++++++++++++++++
     if (Current_Log_File.indexOf("Temp") != -1) { // Checks if a temp logfile is active
-      Log_SD_Queue(Debug, "Temp.log exists, time not synced. Searching for free log file", true);
+      Log_SD_Queue(Debug, "Temp.log exists. Searching for free log file", true);
 
       for (byte i = 1; i <= 255; i++) {
 
@@ -247,22 +258,6 @@ void Log_File_Manager() {
     Log_Serial(Error, "Unable to create log file: " + String(Current_Log_File));
     Disable_Log_To_SD();
   }
-
-
-  // Log_Serial(Debug, "Log file created");
-  // Log_SD_Queue(Debug, "Log file created");
-  //
-  // if (timeStatus() == 0) { // timeNotSet
-  //   Serial.println("timeStatus() == 0");
-  // }
-  //
-  // else if (timeStatus() == 1) { // timeNeedsSync
-  //   Serial.println("timeStatus() == 1");
-  // }
-  //
-  // else if (timeStatus() == 2) { // timeSet - Change log file name to YYYY-MM-DD ".log"
-  //   Serial.println("timeStatus == 2");
-  //
 
 } // Log_File_Manager
 
@@ -524,12 +519,24 @@ void CanNet_Time_Receive(unsigned char &Stratum, unsigned char &Year, unsigned c
         if (Hour >= hour()) {
           if (Minute >= minute()) {
             if (Secound >= second()) {
-              Serial.println("HIT"); // rm
 
-              // Adjusts the time
               String Old_Time_String = Time_String();
-              setTime(Hour,Minute,Secound,Day,Month,Year);
-              Log(Info, "Time adjusted from: " + Old_Time_String + " to: " + Time_String());
+
+              if (timeStatus() == 0) { // timeNotSet
+                // Adjusts the time
+                setTime(Hour,Minute,Secound,Day,Month,Year);
+                Log(Info, "Time adjusted from: " + Old_Time_String + " to: " + Time_String());
+                Log_File_Rename(String(year()) + "-" + String(month()) + "-" + String(day()) + ".log");
+              }
+
+
+                // else if (timeStatus() == 1) { // timeNeedsSync
+                //   Serial.println("timeStatus() == 1");
+                // }
+                //
+                // else if (timeStatus() == 2) { // timeSet - Change log file name to YYYY-MM-DD ".log"
+                //   Serial.println("timeStatus == 2");
+                //
             } // Secound
           } // Minute
         } // Hour
