@@ -6,12 +6,12 @@
 // -------------------------------------------- SD Card --------------------------------------------
 #include "SdFat.h"
 SdFat sd;
-SdFile file;
+// SdFile file;
 
 
 // -------------------------------------------- Files --------------------------------------------
 #define Log_File_Dir "/CanNet/Log/"
-File Log_File;
+//File Log_File;
 String Current_Log_File = "Temp.log";
 
 #define Setting_File_Dir "/CanNet/"
@@ -128,8 +128,10 @@ void Log_Serial(byte Se_Log_Level, String Se_Log_Line_Text) {
 }
 
 void Disable_Log_To_SD() {
-  Log_To_SD = false; // disables logging to SD since there is no place to put the logs
-  Log_Serial(Error, "Logging to SD card disabled");
+  if (Log_To_SD == true) {
+    Log_To_SD = false; // disables logging to SD since there is no place to put the logs
+    Log_Serial(Error, "Logging to SD card disabled");
+  }
 }
 
 void Log_SD_Queue(byte SD_LSQ_Log_Level, String SD_LSQ_Log_Line_Text, bool Echo_To_Serial) {
@@ -145,37 +147,19 @@ void Log_SD_Queue(byte SD_LSQ_Log_Level, String SD_LSQ_Log_Line_Text) {
   Log_SD_Queue(SD_LSQ_Log_Level, SD_LSQ_Log_Line_Text, false);
 }
 
-void Log_File_Rename(String New_File_Name) {
+void Create_Log_File() {
 
   sd.chdir(Log_File_Dir);
 
-  if (sd.exists(New_File_Name.c_str())) {
-    Current_Log_File = String(year()) + "-" + String(month()) + "-" + String(day() + ".log");
-    Log_Serial(Info, "FILE EXISTS: " + Current_Log_File + " to: " + New_File_Name);
-    return;
-  }
-
+  SdFile Log_File(Current_Log_File.c_str(), O_WRITE | O_CREAT);
   Log_File.close();
 
-  SdFile NewFile(Current_Log_File.c_str(), O_APPEND);
-
-  if (!NewFile.isOpen()) {
-    Log_SD_Queue(Error, "Log file in use", true);
-    return;
+  if (!sd.exists(Current_Log_File.c_str()))
+  {
+  Log_Serial(Error, "Unable to create log file: " + String(Current_Log_File));
+  Disable_Log_To_SD();
   }
-
-  if (!NewFile.rename(sd.vwd(), String(Log_File_Dir + New_File_Name).c_str())) {
-    Log_Serial(Error, "Unable to rename log file from: " + Current_Log_File + " to: " + New_File_Name);
-    Disable_Log_To_SD();
-  }
-
-  else {
-    NewFile.close();
-    Current_Log_File = String(year()) + "-" + String(month()) + "-" + String(day() + ".log");
-    Log_Serial(Info, "Log file renamed from: " + Current_Log_File + " to: " + New_File_Name);
-  }
-
-} // Log_File_Rename
+} // Create_Log_File
 
 void Log_File_Manager() {
 
@@ -198,18 +182,8 @@ void Log_File_Manager() {
 
         if (!sd.exists(Current_Log_File.c_str())) {
           Log_SD_Queue(Debug, "Found free temp log file, using: " + Current_Log_File, true);
-          Log_File = sd.open(Current_Log_File, FILE_WRITE);
-
-          if (Log_File)
-          {
-            return; // New log file created and ready to use
-          }
-          else
-          {
-            Log_Serial(Error, "Unable to create log file: " + String(Current_Log_File));
-            Disable_Log_To_SD();
-          }
-
+          Create_Log_File();
+          return;
         }
 
         // Only allowing 200 temp log files
@@ -217,19 +191,16 @@ void Log_File_Manager() {
           if (Current_Log_File == "Temp200.log") Current_Log_File.replace("200.log", "000.log");
 
           Log_SD_Queue(Warning, "Unable to find free log file, using: " + Current_Log_File, true);
-          Log_File = sd.open(Current_Log_File, O_APPEND);
 
-          if (Log_File)
+          if (sd.exists(Current_Log_File.c_str()))
           {
-            // PB - Potential bug, might the file "Temp000.log" get to big?
-            return; // Append to the end of the file
+            return; // New log file created and ready to use
           }
           else
           {
-            Log_Serial(Error, "Unable to append to log file: " + String(Current_Log_File));
-            Disable_Log_To_SD();
+            Create_Log_File();
             return;
-          }
+          } // if (i == 200 || sd.exists("Temp000.log")
         }
 
       } // for
@@ -238,26 +209,12 @@ void Log_File_Manager() {
 
 
     // ++++++++++++++++++++ Normal log file active ++++++++++++++++++++
-    Log_File = sd.open(Current_Log_File, O_APPEND);
-    if (!Log_File) {
-      Log_Serial(Error, "Unable to append to log file: " + String(Current_Log_File));
-      Disable_Log_To_SD();
-    }
-    // PB - Potential bug, might the file log get to big?
     return; // Append to the end of the file
 
   } //   if (sd.exists(Current_Log_File.c_str()))
 
-  Log_File = sd.open(Current_Log_File, FILE_WRITE);
-  if (Log_File)
-  {
-    return; // New log file created and ready to use
-  }
-  else
-  {
-    Log_Serial(Error, "Unable to create log file: " + String(Current_Log_File));
-    Disable_Log_To_SD();
-  }
+  Create_Log_File();
+
 
 } // Log_File_Manager
 
@@ -267,6 +224,8 @@ void Write_Log_To_SD() {
   if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P
 
   Log_File_Manager();
+
+  SdFile Log_File(Current_Log_File.c_str(), O_APPEND);
 
   String Write_String;
 
@@ -282,6 +241,29 @@ void Write_Log_To_SD() {
 
 } // Write_Log_To_SD
 
+
+void Log_File_Rename(String New_File_Name) {
+
+  sd.chdir(Log_File_Dir);
+
+  if (sd.exists(New_File_Name.c_str())) {
+    Current_Log_File = String(year()) + "-" + String(month()) + "-" + String(day() + ".log");
+    Log_Serial(Info, "FILE EXISTS: " + Current_Log_File + " to: " + New_File_Name);
+    return;
+  }
+
+  // if (!Log_File.rename(sd.vwd(), New_File_Name.c_str())) {
+  if (sd.rename(Current_Log_File.c_str(), New_File_Name.c_str())) {
+    Log_Serial(Error, "Unable to rename log file from: " + Current_Log_File + " to: " + New_File_Name);
+    Disable_Log_To_SD();
+  }
+
+  else {
+    Current_Log_File = String(year()) + "-" + String(month()) + "-" + String(day()) + ".log";
+    Log_Serial(Info, "Log file renamed from: " + Current_Log_File + " to: " + New_File_Name);
+  }
+
+} // Log_File_Rename
 
 void Log_SD(byte &SD_Log_Level, String &SD_Log_Line_Text) {
 
@@ -509,10 +491,6 @@ void CanNet_Time_Send() {
 // -------------------------------------------- CAN Time --------------------------------------------
 void CanNet_Time_Receive(unsigned char &Stratum, unsigned char &Year, unsigned char &Month, unsigned char &Day, unsigned char &Hour, unsigned char &Minute, unsigned char &Secound) {
 
-  Serial.println("----- MARKER -----"); // rm
-
-
-
   if (Year + 2000 >= year()) {
     if (Month >= month()) {
       if (Day >= day()) {
@@ -543,9 +521,6 @@ void CanNet_Time_Receive(unsigned char &Stratum, unsigned char &Year, unsigned c
       } // Day
     } // Month
   } // Year
-
-  Serial.println("----- MARKER -----"); // rm
-  delay(5000);
 
 } // CanNet_Time_Receive
 
@@ -760,7 +735,7 @@ void setup() {
   Buffer_Receive[0] = 3;
   Buffer_Receive[2] = 18;
   Buffer_Receive[3] = 1;
-  Buffer_Receive[4] = 12;
+  Buffer_Receive[4] = 14;
   Buffer_Receive[5] = 22;
   Buffer_Receive[6] = 24;
   Buffer_Receive[7] = 17;
