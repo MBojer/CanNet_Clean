@@ -54,12 +54,12 @@ MB_Queue CanNet_Receive_Queue(25);
 // MB_Queue_Delay Delay_Queue;
 
 
-// -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
+// -------------------------------------------- Serial Interfaces --------------------------------------------
 #include <Auto_Serial_Speed.h>
 
 Auto_Serial_Speed Serial_Speed_Test;
 
-bool Serial_Touch_Screen[3] = {false, false, false};
+bool Serial_Interface[] = {false, false, false};
 
 
 // -------------------------------------------- CAN  --------------------------------------------
@@ -665,7 +665,7 @@ void setup() {
 
 
     for (byte i = 0; i < 3; i++) {
-      Setting_Import(Serial_Touch_Screen[i], "Touch Screen " + String(i + 1), File_Content);
+      Setting_Import(Serial_Interface[i], "Serial Interface " + String(i + 1), File_Content);
     }
 
   } // if (File_Content != "")

@@ -1,0 +1,16 @@
+Settings:
+
+CanNet ID = 1
+
+Log To Serial = true
+Serial Log Level = 5
+
+Log To SD = true
+SD Log Level =  5
+SD Cache Lines = 7
+
+Serial 1 = Ethernet
+Serial 2 = Touch
+
+
+Comments:
