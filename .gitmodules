@@ -1,0 +1,18 @@
+[submodule "lib/Auto_Serial_Speed"]
+	path = lib/Auto_Serial_Speed
+	url = https://github.com/MBojer/Auto_Serial_Speed
+[submodule "lib/MemoryFree"]
+	path = lib/MemoryFree
+	url = https://github.com/McNeight/MemoryFree.git
+[submodule "lib/SdFat"]
+	path = lib/SdFat
+	url = https://github.com/greiman/SdFat.git
+[submodule "lib/MB_Queue"]
+	path = lib/MB_Queue
+	url = https://github.com/MBojer/MB_Queue.git
+[submodule "lib/Time"]
+	path = lib/Time
+	url = https://github.com/PaulStoffregen/Time.git
+[submodule "lib/MCP_CAN_lib"]
+	path = lib/MCP_CAN_lib
+	url = https://github.com/coryjfowler/MCP_CAN_lib.git
