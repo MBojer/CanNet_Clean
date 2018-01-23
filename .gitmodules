@@ -13,6 +13,3 @@
 [submodule "lib/Time"]
 	path = lib/Time
 	url = https://github.com/PaulStoffregen/Time.git
-[submodule "lib/MCP_CAN_lib"]
-	path = lib/MCP_CAN_lib
-	url = https://github.com/coryjfowler/MCP_CAN_lib.git
