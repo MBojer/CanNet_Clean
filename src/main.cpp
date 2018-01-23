@@ -3,18 +3,20 @@
 #include <SPI.h>
 
 
+
 // -------------------------------------------- SD Card --------------------------------------------
 #include "SdFat.h"
 SdFat sd;
-// SdFile file;
 
 
 // -------------------------------------------- Files --------------------------------------------
-#define Log_File_Dir "/CanNet/Log/"
-//File Log_File;
-String Current_Log_File = "Temp.log";
+#define Root_Dir "/CanNet/"
+#define Log_File_Dir "Log/"
 
-#define Setting_File_Dir "/CanNet/"
+File Log_File;
+String Current_Log_File = "1970-1-1.log";
+byte Current_Log_File_Day = 1;
+
 #define Setting_File_Name "Settings.txt"
 
 
@@ -59,7 +61,7 @@ MB_Queue CanNet_Receive_Queue(25);
 
 Auto_Serial_Speed Serial_Speed_Test;
 
-bool Serial_Interface[] = {false, false, false};
+byte Serial_Interface[] = {0, 0, 0, 0}; // Serial 0 is not used
 
 
 // -------------------------------------------- CAN  --------------------------------------------
@@ -127,8 +129,9 @@ void Log_Serial(byte Se_Log_Level, String Se_Log_Line_Text) {
   Serial.println(Se_Log_Line_Text);
 }
 
-void Disable_Log_To_SD() {
+void Disable_Log_To_SD(String Serial_String) {
   if (Log_To_SD == true) {
+    Log_Serial(Error, Serial_String);
     Log_To_SD = false; // disables logging to SD since there is no place to put the logs
     Log_Serial(Error, "Logging to SD card disabled");
   }
@@ -147,104 +150,40 @@ void Log_SD_Queue(byte SD_LSQ_Log_Level, String SD_LSQ_Log_Line_Text) {
   Log_SD_Queue(SD_LSQ_Log_Level, SD_LSQ_Log_Line_Text, false);
 }
 
-void Create_Log_File() {
-
-  sd.chdir(Log_File_Dir);
-
-  SdFile Log_File(Current_Log_File.c_str(), O_WRITE | O_CREAT);
-  Log_File.close();
-
-  if (!sd.exists(Current_Log_File.c_str()))
-  {
-  Log_Serial(Error, "Unable to create log file: " + String(Current_Log_File));
-  Disable_Log_To_SD();
-  }
-} // Create_Log_File
-
-void Log_File_Manager() {
-
-  sd.chdir(Log_File_Dir);
-
-  if (sd.exists(Current_Log_File.c_str())) {
-    // ++++++++++++++++++++ Temp log file active ++++++++++++++++++++
-    if (Current_Log_File.indexOf("Temp") != -1) { // Checks if a temp logfile is active
-      Log_SD_Queue(Debug, "Temp.log exists. Searching for free log file", true);
-
-      for (byte i = 1; i <= 255; i++) {
-
-        Current_Log_File = "Temp";
-
-        if (i < 10) Current_Log_File = Current_Log_File + "0"; // Zero patching
-        if (i < 100) Current_Log_File = Current_Log_File + "0"; // Zero patching
-
-        Current_Log_File = Current_Log_File + String(i);
-        Current_Log_File = Current_Log_File + ".log";
-
-        if (!sd.exists(Current_Log_File.c_str())) {
-          Log_SD_Queue(Debug, "Found free temp log file, using: " + Current_Log_File, true);
-          Create_Log_File();
-          return;
-        }
-
-        // Only allowing 200 temp log files
-        if (i == 200 || sd.exists("Temp000.log")) {
-          if (Current_Log_File == "Temp200.log") Current_Log_File.replace("200.log", "000.log");
-
-          Log_SD_Queue(Warning, "Unable to find free log file, using: " + Current_Log_File, true);
-
-          if (sd.exists(Current_Log_File.c_str()))
-          {
-            return; // New log file created and ready to use
-          }
-          else
-          {
-            Create_Log_File();
-            return;
-          } // if (i == 200 || sd.exists("Temp000.log")
-        }
-
-      } // for
-
-    } // Temp log file
-
-
-    // ++++++++++++++++++++ Normal log file active ++++++++++++++++++++
-    return; // Append to the end of the file
-
-  } //   if (sd.exists(Current_Log_File.c_str()))
-
-  Create_Log_File();
-
-
-} // Log_File_Manager
-
 
 void Write_Log_To_SD() {
 
-  if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P
+  if (Log_To_SD == 0) return;
 
-  Log_File_Manager();
+  else if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P
 
-  SdFile Log_File(Current_Log_File.c_str(), O_APPEND);
+
+  if (!Log_File) {
+    Serial.println("Log file not open");
+
+  }
+
+  // if (!Log_File.open(Log_File_Path.c_str(), O_APPEND)) {
+  //   while (true) delay(1000); // rm
+  //   return;
+  // }
+
 
   String Write_String;
 
-  for (byte i = 0; i < Log_Queue.Length(); i++) { // Writing the log to the file
+  while (Log_Queue.Length() != 0) { // Writing the log to the file
     Write_String = Log_Queue.Pop();
     Write_String.replace(".+-", ";"); // change me - the queue function needs to use something else then ";" for spacers
     Log_File.println(Write_String);
   }
 
-  Log_File.close();
-
-  Log_Serial(Debug, "Log writting to SD card");
+  Log_File.flush();
+  // Log_File.close();
 
 } // Write_Log_To_SD
 
 
 void Log_File_Rename(String New_File_Name) {
-
-  sd.chdir(Log_File_Dir);
 
   if (sd.exists(New_File_Name.c_str())) {
     Current_Log_File = String(year()) + "-" + String(month()) + "-" + String(day() + ".log");
@@ -254,8 +193,7 @@ void Log_File_Rename(String New_File_Name) {
 
   // if (!Log_File.rename(sd.vwd(), New_File_Name.c_str())) {
   if (sd.rename(Current_Log_File.c_str(), New_File_Name.c_str())) {
-    Log_Serial(Error, "Unable to rename log file from: " + Current_Log_File + " to: " + New_File_Name);
-    Disable_Log_To_SD();
+    Disable_Log_To_SD("Unable to rename log file from: " + Current_Log_File + " to: " + New_File_Name);
   }
 
   else {
@@ -270,8 +208,7 @@ void Log_SD(byte &SD_Log_Level, String &SD_Log_Line_Text) {
   if (Log_Queue.Length() >= SD_Cache_Lines) {
     Log_Serial(Debug, "SD Log Queue Full");
     Write_Log_To_SD();
-    Log_Queue.Clear();
-    Log_Serial(Debug, "SD Log Queue Cleared");
+    if (Log_Queue.Length() != 0) Log_Serial(Debug, "SD Log Queue Cleared");
   }
 
   Log_SD_Queue(SD_Log_Level, SD_Log_Line_Text, false);
@@ -388,18 +325,26 @@ bool Setting_Import(byte &Variable, String Search_Text, String &File_Content) {
   return false;
 }
 
+bool Setting_Import(String &Variable, String Search_Text, String &File_Content) {
+  if (File_Content.indexOf("\r\n" + Search_Text + " = ") != -1)
+  {
+    Variable = Find_Setting(File_Content, Search_Text);
+    Log(Debug, "Setting imported: " + Search_Text + " = " + String(Variable));
+    return true;
+  }
+  return false;
+}
+
 
 // -------------------------------------------- Read Conf File --------------------------------------------
 String Read_Settings_File() {
 
-    sd.chdir(Setting_File_Dir);
-
-    if (!sd.exists(Setting_File_Name)) {
-      Error_Mode(1, "Settings File missing: " + String(Setting_File_Dir) + String(Setting_File_Name));
+    if (!sd.exists(String(String(Root_Dir) + String(Setting_File_Name)).c_str())) {
+      Error_Mode(1, "Settings File missing: " + String(Root_Dir) + String(Setting_File_Name));
       return "";
     }
 
-    File Temp_File = sd.open(Setting_File_Name, FILE_READ);
+    File Temp_File = sd.open(String(String(Root_Dir) + String(Setting_File_Name)).c_str(), FILE_READ);
 
     String Temp_Content = "";
     // Reads the file and puts it into a string
@@ -627,19 +572,21 @@ void CanNet_ID_Boot_Check() {
 }
 
 
-
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++ Setup +++++++++++++++++++++++++++++++++++++++++++++++++
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void setup() {
   // -------------------------------------------- Serial --------------------------------------------
   Serial.begin(115200);
-  Log("Booting");
+  Log("=======================================");
+  Log("=============== Booting ===============");
+  Log("=======================================");
 
 
   // -------------------------------------------- SD Card --------------------------------------------
   if (!sd.begin(4, SD_SCK_MHZ(50))) {
     Log_To_SD = false; // Disables logging to SD card
+    sd.initErrorHalt();
     Error_Mode(Fatal, "Initializing SD card failed");
   }
 
@@ -664,8 +611,12 @@ void setup() {
     Setting_Import(SD_Cache_Lines, "SD Cache Lines", File_Content);
 
 
-    for (byte i = 0; i < 3; i++) {
-      Setting_Import(Serial_Interface[i], "Serial Interface " + String(i + 1), File_Content);
+    String Temp_Str;
+    for (byte i = 1; i < 4; i++) {
+      if (Setting_Import(Temp_Str, "Serial " + String(i), File_Content) == true) {
+        if (Temp_Str == "Ethernet") Serial_Interface[i] = 1;
+        else if (Temp_Str == "Touch") Serial_Interface[i] = 2;
+      }
     }
 
   } // if (File_Content != "")
@@ -676,16 +627,26 @@ void setup() {
   }
 
 
-  // -------------------------------------------- Log dir check --------------------------------------------
-  if (!sd.exists(Log_File_Dir)) {
-    if (!sd.mkdir(Log_File_Dir)) {
-      Log_Serial(Error, "Unable to create log directory");
-      Disable_Log_To_SD();
+  // -------------------------------------------- Log Dir and File --------------------------------------------
+  if (!sd.exists(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
+
+    if (!sd.mkdir(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
+      Disable_Log_To_SD("Unable to create log directory");
     }
     else {
+      Log_Serial(Info, "Log directory created");
       Log_SD_Queue(Info, "Log directory created");
+      sd.chdir("/");
     }
   }
+
+  Log_File = sd.open(String(String(Root_Dir) + String(Log_File_Dir) + Current_Log_File).c_str(), O_APPEND);
+
+  if (!Log_File) {
+    Serial.println("CAnt create log file");
+    while (true) delay(1000);
+  }
+
 
 
   // -------------------------------------------- CAN --------------------------------------------
@@ -701,55 +662,55 @@ void setup() {
   CanNet_Time_Request();
 
 
-  // -------------------------------------------- Touch Screen Serial Interface --------------------------------------------
-  if (Serial_Touch_Screen[0] == true)
-  {
-    Log(Debug, "Touch Screen Serial1 Speed Test Started");
-    byte Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial1);
+  // -------------------------------------------- Serial Interfaces --------------------------------------------
+  for (byte i = 1; i < 4; i++) {
+    if (Serial_Interface[i] != 0) {
+      Log(Debug, "Serial Interface " + String(i) + " Speed Test Started");
 
-    if (Temp_Byte > 89) Log(Error, "Touch Screen on Serial1 in config but connection failed with error: " + String(Serial_Speed_Test.Error_Text(Temp_Byte)));
-    else Log(Debug, "Touch Screen Serial1 Speed Selected: " + String(Serial_Speed_Test.Speed_Step(Temp_Byte)));
-  }
-  if (Serial_Touch_Screen[1] == true)
-  {
-    Log(Debug, "Touch Screen Serial2 Speed Test Started");
-    byte Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial2);
+      byte Temp_Byte;
 
-    if (Temp_Byte > 89) Log(Error, "Touch Screen on Serial2 in config but connection failed with error: " + String(Serial_Speed_Test.Error_Text(Temp_Byte)));
-    else Log(Debug, "Touch Screen Serial2 Speed Selected: " + String(Serial_Speed_Test.Speed_Step(Temp_Byte)));
-  }
-  if (Serial_Touch_Screen[2] == true)
-  {
-    Log(Debug, "Touch Screen Serial3 Speed Test Started");
-    byte Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial3);
+      if (i == 1) Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial1);
+      else if (i == 2) Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial2);
+      else if (i == 3) Temp_Byte = Serial_Speed_Test.Test_Speed_Master(Serial3);
 
-    if (Temp_Byte > 89) Log(Error, "Touch Screen on Serial3 in config but connection failed with error: " + String(Serial_Speed_Test.Error_Text(Temp_Byte)));
-    else Log(Debug, "Touch Screen Serial3 Speed Selected: " + String(Serial_Speed_Test.Speed_Step(Temp_Byte)));
+      if (Temp_Byte > 89) {
+        Log(Error, "Serial Interface " + String(i) + " in config but connection failed with error: " + String(Serial_Speed_Test.Error_Text(Temp_Byte)) + ". Disabling this interface");
+        Serial_Interface[i] = 0;
+      }
+      else {
+        String Temp_St = "Serial Interface " + String(i) + ": ";
+        if (Serial_Interface[1] == 1) Temp_St += "Ethernet: ";
+        else if (Serial_Interface[1] == 1) Temp_St += "Touch: ";
+        Log(Debug, Temp_St + "Speed Selected: " + String(Serial_Speed_Test.Speed_Step(Temp_Byte)));
+      }
+
+
+    }
+
   }
 
 
   Log("Boot done");
 
-  unsigned char Buffer_Receive[8];
-
-  Buffer_Receive[0] = 3;
-  Buffer_Receive[2] = 18;
-  Buffer_Receive[3] = 1;
-  Buffer_Receive[4] = 14;
-  Buffer_Receive[5] = 22;
-  Buffer_Receive[6] = 24;
-  Buffer_Receive[7] = 17;
-
-  CanNet_Time_Receive(Buffer_Receive[0],
-                      Buffer_Receive[2],
-                      Buffer_Receive[3],
-                      Buffer_Receive[4],
-                      Buffer_Receive[5],
-                      Buffer_Receive[6],
-                      Buffer_Receive[7]
-                      );
-
-  Log_File_Manager();
+  // unsigned char Buffer_Receive[8];
+  //
+  // Buffer_Receive[0] = 3;
+  // Buffer_Receive[2] = 18;
+  // Buffer_Receive[3] = 1;
+  // Buffer_Receive[4] = 14;
+  // Buffer_Receive[5] = 22;
+  // Buffer_Receive[6] = 24;
+  // Buffer_Receive[7] = 17;
+  //
+  // CanNet_Time_Receive(Buffer_Receive[0],
+  //                     Buffer_Receive[2],
+  //                     Buffer_Receive[3],
+  //                     Buffer_Receive[4],
+  //                     Buffer_Receive[5],
+  //                     Buffer_Receive[6],
+  //                     Buffer_Receive[7]
+  //                     );
+  //
 
 } // setup
 
