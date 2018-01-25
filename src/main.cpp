@@ -7,13 +7,16 @@
 #include <SdFat.h>
 
 SdFat sd;
+SdFile file;
+SdFile dirFile;
 
 
 // -------------------------------------------- Files --------------------------------------------
 #define Root_Dir "/CanNet/"
-#define Log_File_Dir "Log/"
+#define Log_File_Dir "/CanNet/Log/"
 
 File Log_File;
+
 String Current_Log_File = "1970-1-1.log";
 byte Current_Log_File_Day = 1;
 
@@ -157,68 +160,28 @@ void Write_Log_To_SD() {
 
   else if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P
 
-  Serial.println("MARKER 123123123");
+  // -------------------------------------------- Opening Log Dir --------------------------------------------
+  if (!dirFile.isOpen()) {
+    if (!dirFile.open(Log_File_Dir, O_READ)) {
+      Log_Serial(Info, "Log directory missing");
+      Log_SD_Queue(Info, "Log directory missing");
 
-  File myfile;
-
-  while (myfile.opennext(sd.vwd(), o_read)) {
-
-  char name[13];
-  // name current working directory
-  myfile.cwd()->getfilename(name);
-  serial.print(f("name is:/"));
-  serial.println(name);
-  serial.print(f("or...: "));
-  dir_t dir;
-  myfile.dirname(dir, name);
-  serial.println(name);
-
-
-
-
-  while (true) delay(1000);
-
-
-
-
-
-
-  // -------------------------------------------- Log Dir and File --------------------------------------------
-  if (!sd.exists(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
-
-    if (!sd.mkdir(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
-      Disable_Log_To_SD("Unable to create log directory");
-    }
-    else {
-      Log_Serial(Info, "Log directory created");
-      Log_SD_Queue(Info, "Log directory created");
-      sd.chdir("/");
+      if (!sd.mkdir(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
+        Disable_Log_To_SD("Unable to create log directory");
+      }
+      else {
+        Log_Serial(Info, "Log directory created");
+        Log_SD_Queue(Info, "Log directory created");
+      }
     }
   }
 
-
-
-  Log_File = sd.open(String(String(Root_Dir) + String(Log_File_Dir) + Current_Log_File).c_str(), O_APPEND);
-
-
-  if (Log_File) Serial.println("CAN create log file");
-  if (!Log_File) {
-    Serial.println("Can't create log file");
-    while (true) delay(1000);
+  // -------------------------------------------- Opening Log File --------------------------------------------
+  if (!Log_File.isOpen()) {
+    if (!Log_File.open(&dirFile, Current_Log_File.c_str(), O_APPEND | O_WRITE | O_CREAT)) {
+      Disable_Log_To_SD("Unable to create log file");
+    }
   }
-
-
-
-  if (!Log_File) {
-    Serial.println("Log file not open");
-    while (true) delay(1000); // rm
-
-  }
-
-  // if (!Log_File.open(Log_File_Path.c_str(), O_APPEND)) {
-  //   return;
-  // }
-
 
   String Write_String;
 
@@ -228,10 +191,10 @@ void Write_Log_To_SD() {
     Log_File.println(Write_String);
   }
 
-  Log_File.flush();
-  // Log_File.close();
+  Log_File.close();
 
 } // Write_Log_To_SD
+
 
 
 void Log_File_Rename(String New_File_Name) {
@@ -412,6 +375,8 @@ String Read_Settings_File() {
       Temp_Content.replace("\r\n\r\n", "\r\n");
     }
 
+    sd.chdir(); // Changes dir to "/"
+
     return String(Temp_Content);
 }
 
@@ -487,11 +452,23 @@ void CanNet_Time_Send() {
 // -------------------------------------------- CAN Time --------------------------------------------
 void CanNet_Time_Receive(unsigned char &Stratum, unsigned char &Year, unsigned char &Month, unsigned char &Day, unsigned char &Hour, unsigned char &Minute, unsigned char &Secound) {
 
+  Serial.println("MARKER CanNet_Time_Receive");
+  Serial.println(now());
+
+  tmElements_t myElements = {Secound, Minute, Hour, Day, Month, Year };
+  time_t myTime = makeTime(myElements);
+
+
+
+  Serial.println(myTime);
+
+
   if (Year + 2000 >= year()) {
     if (Month >= month()) {
       if (Day >= day()) {
         if (Hour >= hour()) {
           if (Minute >= minute()) {
+            Serial.println("Marker222");
             if (Secound >= second()) {
 
               String Old_Time_String = Time_String();
@@ -721,25 +698,27 @@ void setup() {
 
   Log("Boot done");
 
-  // unsigned char Buffer_Receive[8];
-  //
-  // Buffer_Receive[0] = 3;
-  // Buffer_Receive[2] = 18;
-  // Buffer_Receive[3] = 1;
-  // Buffer_Receive[4] = 14;
-  // Buffer_Receive[5] = 22;
-  // Buffer_Receive[6] = 24;
-  // Buffer_Receive[7] = 17;
-  //
-  // CanNet_Time_Receive(Buffer_Receive[0],
-  //                     Buffer_Receive[2],
-  //                     Buffer_Receive[3],
-  //                     Buffer_Receive[4],
-  //                     Buffer_Receive[5],
-  //                     Buffer_Receive[6],
-  //                     Buffer_Receive[7]
-  //                     );
-  //
+  unsigned char Buffer_Receive[8];
+
+  Buffer_Receive[0] = 3;
+  Buffer_Receive[2] = 18;
+  Buffer_Receive[3] = 1;
+  Buffer_Receive[4] = 14;
+  Buffer_Receive[5] = 22;
+  Buffer_Receive[6] = 24;
+  Buffer_Receive[7] = 17;
+
+  // unsigned char &Stratum, unsigned char &Year, unsigned char &Month, unsigned char &Day, unsigned char &Hour, unsigned char &Minute, unsigned char &Secound) {
+
+  CanNet_Time_Receive(Buffer_Receive[0],
+                      Buffer_Receive[2],
+                      Buffer_Receive[3],
+                      Buffer_Receive[4],
+                      Buffer_Receive[5],
+                      Buffer_Receive[6],
+                      Buffer_Receive[7]
+                      );
+
 
 } // setup
 
