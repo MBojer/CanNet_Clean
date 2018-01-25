@@ -3,9 +3,9 @@
 #include <SPI.h>
 
 
-
 // -------------------------------------------- SD Card --------------------------------------------
-#include "SdFat.h"
+#include <SdFat.h>
+
 SdFat sd;
 
 
@@ -157,14 +157,65 @@ void Write_Log_To_SD() {
 
   else if (Log_Queue.Length() == 0) return; // Nothing to do, might as well fuck off :-P
 
+  Serial.println("MARKER 123123123");
+
+  File myfile;
+
+  while (myfile.opennext(sd.vwd(), o_read)) {
+
+  char name[13];
+  // name current working directory
+  myfile.cwd()->getfilename(name);
+  serial.print(f("name is:/"));
+  serial.println(name);
+  serial.print(f("or...: "));
+  dir_t dir;
+  myfile.dirname(dir, name);
+  serial.println(name);
+
+
+
+
+  while (true) delay(1000);
+
+
+
+
+
+
+  // -------------------------------------------- Log Dir and File --------------------------------------------
+  if (!sd.exists(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
+
+    if (!sd.mkdir(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
+      Disable_Log_To_SD("Unable to create log directory");
+    }
+    else {
+      Log_Serial(Info, "Log directory created");
+      Log_SD_Queue(Info, "Log directory created");
+      sd.chdir("/");
+    }
+  }
+
+
+
+  Log_File = sd.open(String(String(Root_Dir) + String(Log_File_Dir) + Current_Log_File).c_str(), O_APPEND);
+
+
+  if (Log_File) Serial.println("CAN create log file");
+  if (!Log_File) {
+    Serial.println("Can't create log file");
+    while (true) delay(1000);
+  }
+
+
 
   if (!Log_File) {
     Serial.println("Log file not open");
+    while (true) delay(1000); // rm
 
   }
 
   // if (!Log_File.open(Log_File_Path.c_str(), O_APPEND)) {
-  //   while (true) delay(1000); // rm
   //   return;
   // }
 
@@ -625,28 +676,6 @@ void setup() {
     Log_To_SD = false;
     Error_Mode(Fatal, "Settings file not found");
   }
-
-
-  // -------------------------------------------- Log Dir and File --------------------------------------------
-  if (!sd.exists(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
-
-    if (!sd.mkdir(String(String(Root_Dir) + String(Log_File_Dir)).c_str())) {
-      Disable_Log_To_SD("Unable to create log directory");
-    }
-    else {
-      Log_Serial(Info, "Log directory created");
-      Log_SD_Queue(Info, "Log directory created");
-      sd.chdir("/");
-    }
-  }
-
-  Log_File = sd.open(String(String(Root_Dir) + String(Log_File_Dir) + Current_Log_File).c_str(), O_APPEND);
-
-  if (!Log_File) {
-    Serial.println("CAnt create log file");
-    while (true) delay(1000);
-  }
-
 
 
   // -------------------------------------------- CAN --------------------------------------------
