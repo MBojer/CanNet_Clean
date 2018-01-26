@@ -193,6 +193,9 @@ void Write_Log_To_SD() {
 
   Log_File.close();
 
+  Log_Serial(Debug, "Log written to SD card");
+
+
 } // Write_Log_To_SD
 
 
@@ -222,7 +225,7 @@ void Log_SD(byte &SD_Log_Level, String &SD_Log_Line_Text) {
   if (Log_Queue.Length() >= SD_Cache_Lines) {
     Log_Serial(Debug, "SD Log Queue Full");
     Write_Log_To_SD();
-    if (Log_Queue.Length() != 0) Log_Serial(Debug, "SD Log Queue Cleared");
+    if (Log_Queue.Length() == 0) Log_Serial(Debug, "SD Log Queue Cleared");
   }
 
   Log_SD_Queue(SD_Log_Level, SD_Log_Line_Text, false);
